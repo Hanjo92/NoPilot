@@ -1,0 +1,127 @@
+import * as vscode from 'vscode';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import {
+  AIProvider,
+  CompletionRequest,
+  CompletionResponse,
+  CommitMessageRequest,
+  ProviderInfo,
+} from '../types';
+import { AuthService } from '../services/authService';
+import { buildCompletionPrompt, buildCommitMessagePrompt } from './prompts';
+
+/**
+ * Provider for Google Gemini API.
+ * Directly calls the Gemini API using an API key from SecretStorage.
+ */
+export class GeminiProvider implements AIProvider {
+  private genAI: GoogleGenerativeAI | undefined;
+  private model: GenerativeModel | undefined;
+
+  private _info: ProviderInfo = {
+    id: 'gemini',
+    name: 'Gemini',
+    icon: '💎',
+    description: 'Google Gemini API',
+    status: 'needs-key',
+    currentModel: '',
+    availableModels: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-pro'],
+    requiresApiKey: true,
+    hasApiKey: false,
+  };
+
+  constructor(private readonly authService: AuthService) {
+    const config = vscode.workspace.getConfiguration('nopilot.gemini');
+    this._info.currentModel = config.get('model', 'gemini-2.0-flash');
+  }
+
+  get info(): ProviderInfo {
+    return { ...this._info };
+  }
+
+  async isAvailable(): Promise<boolean> {
+    const hasKey = await this.authService.hasApiKey('gemini');
+    this._info.hasApiKey = hasKey;
+    this._info.status = hasKey ? 'ready' : 'needs-key';
+    if (hasKey && !this.genAI) {
+      await this.initClient();
+    }
+    return hasKey;
+  }
+
+  private async initClient(): Promise<void> {
+    const apiKey = await this.authService.getApiKey('gemini');
+    if (apiKey) {
+      this.genAI = new GoogleGenerativeAI(apiKey);
+      this.model = this.genAI.getGenerativeModel({ model: this._info.currentModel });
+    }
+  }
+
+  async complete(
+    request: CompletionRequest,
+    token: vscode.CancellationToken
+  ): Promise<CompletionResponse> {
+    await this.ensureClient();
+
+    const prompt = buildCompletionPrompt(request);
+
+    // Gemini SDK doesn't support AbortController directly
+    // so we check cancellation before and after the call
+    if (token.isCancellationRequested) {
+      return { text: '' };
+    }
+
+    const result = await this.model!.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        stopSequences: request.stopSequences,
+      }
+    });
+    const response = result.response;
+
+    if (token.isCancellationRequested) {
+      return { text: '' };
+    }
+
+    return { text: response.text().trim() };
+  }
+
+  async generateCommitMessage(
+    request: CommitMessageRequest,
+    token: vscode.CancellationToken
+  ): Promise<string> {
+    await this.ensureClient();
+
+    const prompt = buildCommitMessagePrompt(request);
+
+    if (token.isCancellationRequested) {
+      return '';
+    }
+
+    const result = await this.model!.generateContent(prompt);
+    const response = result.response;
+
+    return response.text().trim();
+  }
+
+  private async ensureClient(): Promise<void> {
+    if (!this.model) {
+      await this.initClient();
+    }
+    if (!this.model) {
+      throw new Error('Gemini API key not configured. Use "NoPilot: Set API Key" to set it.');
+    }
+  }
+
+  async refreshClient(): Promise<void> {
+    this.genAI = undefined;
+    this.model = undefined;
+    await this.initClient();
+    await this.isAvailable();
+  }
+
+  dispose(): void {
+    this.genAI = undefined;
+    this.model = undefined;
+  }
+}

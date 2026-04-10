@@ -1,0 +1,187 @@
+{
+  "name": "nopilot",
+  "displayName": "NoPilot",
+  "description": "Replace GitHub Copilot with your preferred AI provider — Claude, GPT, Gemini, Ollama, and more.",
+  "version": "0.1.0",
+  "publisher": "nopilot",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seunghus/nopilot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/seunghus/nopilot/issues"
+  },
+  "homepage": "https://github.com/seunghus/nopilot#readme",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "AI",
+    "Machine Learning",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "ai",
+    "copilot",
+    "claude",
+    "openai",
+    "gemini",
+    "ollama",
+    "inline completion",
+    "code completion",
+    "commit message"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "nopilot.generateCommitMessage",
+        "title": "NoPilot: Generate Commit Message",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "nopilot.toggleInline",
+        "title": "NoPilot: Toggle Inline Suggestions"
+      },
+      {
+        "command": "nopilot.openSettings",
+        "title": "NoPilot: Open Settings",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "nopilot.switchProvider",
+        "title": "NoPilot: Switch AI Provider"
+      },
+      {
+        "command": "nopilot.setApiKey",
+        "title": "NoPilot: Set API Key"
+      },
+      {
+        "command": "nopilot.inlineChat",
+        "title": "NoPilot: Inline Chat (Edit/Replace)"
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "nopilot.generateCommitMessage",
+          "group": "navigation",
+          "when": "scmProvider == git"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "nopilot.inlineChat",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "NoPilot",
+      "properties": {
+        "nopilot.provider": {
+          "type": "string",
+          "enum": [
+            "vscode-lm",
+            "anthropic",
+            "openai",
+            "gemini",
+            "ollama"
+          ],
+          "default": "vscode-lm",
+          "description": "Active AI provider"
+        },
+        "nopilot.model": {
+          "type": "string",
+          "default": "",
+          "description": "Model name (empty = provider default)"
+        },
+        "nopilot.inline.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable inline code completion"
+        },
+        "nopilot.inline.debounceMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 100,
+          "maximum": 2000,
+          "description": "Debounce time in ms before requesting completion"
+        },
+        "nopilot.inline.maxPrefixLines": {
+          "type": "number",
+          "default": 50,
+          "description": "Max lines of code before cursor to include as context"
+        },
+        "nopilot.inline.maxSuffixLines": {
+          "type": "number",
+          "default": 20,
+          "description": "Max lines of code after cursor to include as context"
+        },
+        "nopilot.commitMessage.language": {
+          "type": "string",
+          "default": "en",
+          "description": "Language for commit messages (e.g. en, ko, ja)"
+        },
+        "nopilot.commitMessage.format": {
+          "type": "string",
+          "enum": [
+            "conventional",
+            "simple"
+          ],
+          "default": "conventional",
+          "description": "Commit message format"
+        },
+        "nopilot.anthropic.model": {
+          "type": "string",
+          "default": "claude-sonnet-4-20250514",
+          "description": "Anthropic model to use"
+        },
+        "nopilot.openai.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "OpenAI model to use"
+        },
+        "nopilot.gemini.model": {
+          "type": "string",
+          "default": "gemini-2.0-flash",
+          "description": "Gemini model to use"
+        },
+        "nopilot.ollama.endpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Ollama server endpoint"
+        },
+        "nopilot.ollama.model": {
+          "type": "string",
+          "default": "codellama",
+          "description": "Ollama model to use"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
+    "compile": "tsc -noEmit",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.90.0",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "@google/generative-ai": "^0.21.0",
+    "openai": "^4.70.0"
+  }
+}
