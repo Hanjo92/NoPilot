@@ -107,6 +107,11 @@
           "default": true,
           "description": "Enable inline code completion"
         },
+        "nopilot.inline.pauseWhenCopilotActive": {
+          "type": "boolean",
+          "default": true,
+          "description": "Skip automatic NoPilot inline requests when GitHub Copilot is active for the current language"
+        },
         "nopilot.inline.debounceMs": {
           "type": "number",
           "default": 500,
@@ -171,12 +176,17 @@
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "compile": "tsc -noEmit",
-    "lint": "eslint src --ext ts"
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/providers/modelSelection.test.js .test-dist/providers/providerCredentials.test.js .test-dist/features/inlineText.test.js .test-dist/features/copilotDetection.test.js .test-dist/ui/statusBarPresentation.test.js .test-dist/ui/settingsWebview.test.js .test-dist/ui/settingsPanelActions.test.js .test-dist/services/gitSelection.test.js",
+    "lint": "eslint src"
   },
   "devDependencies": {
+    "@eslint/js": "^9.24.0",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.90.0",
     "esbuild": "^0.21.0",
+    "eslint": "^9.24.0",
+    "globals": "^16.0.0",
+    "typescript-eslint": "^8.29.0",
     "typescript": "^5.4.0"
   },
   "dependencies": {

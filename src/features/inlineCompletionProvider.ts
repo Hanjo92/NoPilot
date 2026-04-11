@@ -2,6 +2,17 @@ import * as vscode from 'vscode';
 import { ProviderManager } from '../providers/providerManager';
 import { CompletionRequest } from '../types';
 import { log, logError } from '../utils/logger';
+import {
+  extractReferencedWords,
+  getInlineStopSequences,
+  sliceLines,
+  stripMarkdownCodeFences,
+} from './inlineText';
+import {
+  COPILOT_EXTENSION_ID,
+  isCopilotEnabledForLanguage,
+  shouldSkipNoPilotAutomaticInline,
+} from './copilotDetection';
 
 /**
  * Inline completion provider that uses the active AI provider
@@ -11,6 +22,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
   private debounceTimer: ReturnType<typeof setTimeout> | undefined;
   private requestCounter = 0; // Track which request is "current"
   private enabled: boolean;
+  private pauseWhenCopilotActive: boolean;
   private debounceMs: number;
   private maxPrefixLines: number;
   private maxSuffixLines: number;
@@ -24,6 +36,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
   constructor(private readonly providerManager: ProviderManager) {
     const config = vscode.workspace.getConfiguration('nopilot');
     this.enabled = config.get('inline.enabled', true);
+    this.pauseWhenCopilotActive = config.get('inline.pauseWhenCopilotActive', true);
     this.debounceMs = config.get('inline.debounceMs', 300);
     this.maxPrefixLines = config.get('inline.maxPrefixLines', 50);
     this.maxSuffixLines = config.get('inline.maxSuffixLines', 20);
@@ -33,6 +46,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
         if (e.affectsConfiguration('nopilot.inline')) {
           const cfg = vscode.workspace.getConfiguration('nopilot');
           this.enabled = cfg.get('inline.enabled', true);
+          this.pauseWhenCopilotActive = cfg.get('inline.pauseWhenCopilotActive', true);
           this.debounceMs = cfg.get('inline.debounceMs', 300);
           this.maxPrefixLines = cfg.get('inline.maxPrefixLines', 50);
           this.maxSuffixLines = cfg.get('inline.maxSuffixLines', 20);
@@ -48,6 +62,10 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     token: vscode.CancellationToken
   ): Promise<vscode.InlineCompletionItem[] | undefined> {
     if (!this.enabled) {
+      return undefined;
+    }
+
+    if (this.shouldSkipAutomaticRequestForCopilot(document.languageId, context.triggerKind)) {
       return undefined;
     }
 
@@ -205,21 +223,9 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
 
     // 3. Heuristic: Semantic Class Reference Fetching
     // Extract recent PascalCase words that look like class/struct names from the prefix
-    const recentPrefix = prefix.slice(-1000); // look at the last ~1000 chars of prefix
-    const classRegex = /\\b[A-Z][a-zA-Z0-9_]*\\b/g;
-    const words = new Set<string>();
-    let match;
-    while ((match = classRegex.exec(recentPrefix)) !== null) {
-      const word = match[0];
-      // Skip common base types or very short words
-      if (word.length > 3 && !['String', 'Boolean', 'Int32', 'Task', 'Void', 'Object', 'Math'].includes(word)) {
-        words.add(word);
-      }
-    }
-
     // Attempt to find files matching these words in the workspace (up to 4 words)
     const ext = document.fileName.substring(document.fileName.lastIndexOf('.'));
-    const searchWords = Array.from(words).reverse().slice(0, 4);
+    const searchWords = extractReferencedWords(prefix).reverse().slice(0, 4);
     
     if (searchWords.length > 0) {
       const searchPromises = searchWords.map(async (word) => {
@@ -241,10 +247,9 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
               const fileData = await vscode.workspace.fs.readFile(targetSymbol.location.uri);
               const text = Buffer.from(fileData).toString('utf8');
               const startLine = Math.max(0, targetSymbol.location.range.start.line - 2);
-              const lines = text.split('\\n');
-              const snippet = lines.slice(startLine, startLine + 50).join('\\n');
+              const snippet = sliceLines(text, startLine, 50);
               const filename = targetSymbol.location.uri.path.split(/[/\\]/).pop();
-              return `// Referenced Symbol: ${word} (from ${filename})\\n${snippet}\\n\\n`;
+              return `// Referenced Symbol: ${word} (from ${filename})\n${snippet}\n\n`;
             }
           }
 
@@ -253,10 +258,10 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
           if (uris.length > 0 && uris[0].toString() !== document.uri.toString()) {
             const fileData = await vscode.workspace.fs.readFile(uris[0]);
             const text = Buffer.from(fileData).toString('utf8');
-            const snippet = text.split('\\n').slice(0, 50).join('\\n');
-            return `// Referenced Class File: ${word}${ext}\\n${snippet}\\n\\n`;
+            const snippet = sliceLines(text, 0, 50);
+            return `// Referenced Class File: ${word}${ext}\n${snippet}\n\n`;
           }
-        } catch (e) {
+        } catch (_error) {
           // Ignore read errors
         }
         return '';
@@ -272,19 +277,8 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     }
 
     // Single-line vs Multi-line logic
-    let stopSequences: string[] | undefined = undefined;
     const currentLine = document.lineAt(position.line).text;
-    const currentLineTrimmed = currentLine.trimEnd();
-    const rightStrPos = currentLine.substring(position.character);
-    
-    // If the right side has text, or the line is mostly an assignment and doesn't end with a block starter
-    const isMidLine = rightStrPos.trim().length > 0;
-    const endsWithBlockStarter = currentLineTrimmed.endsWith('{') || currentLineTrimmed.endsWith(':') || currentLineTrimmed.endsWith('then') || currentLineTrimmed.endsWith('else');
-
-    // If typing in the middle of a line, or finishing a standard non-block line, stop at newline.
-    if (isMidLine || (!endsWithBlockStarter && currentLine.trim().length > 0)) {
-       stopSequences = ['\\n'];
-    }
+    const stopSequences = getInlineStopSequences(currentLine, position.character);
 
     return {
       prefix,
@@ -297,20 +291,29 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     };
   }
 
-  private cleanResponseText(text: string, prefix: string, suffix: string): string {
-    let cleaned = text.trimEnd(); // keep leading whitespace, strip trailing
+  private shouldSkipAutomaticRequestForCopilot(
+    languageId: string,
+    triggerKind: vscode.InlineCompletionTriggerKind
+  ): boolean {
+    const copilotExtension = vscode.extensions.getExtension(COPILOT_EXTENSION_ID);
+    const editorConfig = vscode.workspace.getConfiguration('editor');
+    const copilotConfig = vscode.workspace.getConfiguration('github.copilot');
 
-    const fenceMatch = cleaned.match(/^```[\w]*\n([\s\S]*?)\n?```\s*$/);
-    if (fenceMatch) {
-      cleaned = fenceMatch[1];
-    } else if (cleaned.startsWith('```')) {
-      const lines = cleaned.split('\n');
-      lines.shift();
-      if (lines.length > 0 && lines[lines.length - 1].trim() === '```') {
-        lines.pop();
-      }
-      cleaned = lines.join('\n');
-    }
+    return shouldSkipNoPilotAutomaticInline({
+      isAutomaticTrigger: triggerKind === vscode.InlineCompletionTriggerKind.Automatic,
+      pauseWhenCopilotActive: this.pauseWhenCopilotActive,
+      editorInlineSuggestEnabled: editorConfig.get('inlineSuggest.enabled', true),
+      copilotExtensionInstalled: Boolean(copilotExtension),
+      copilotExtensionActive: Boolean(copilotExtension?.isActive),
+      copilotLanguageEnabled: isCopilotEnabledForLanguage(
+        copilotConfig.get('enable'),
+        languageId
+      ),
+    });
+  }
+
+  private cleanResponseText(text: string, prefix: string, suffix: string): string {
+    let cleaned = stripMarkdownCodeFences(text.trimEnd());
 
     // 1. Remove common overlap with the exact characters before the cursor
     // e.g., prefix ends with "ShopModel", AI outputs "ShopModel data ="
@@ -394,6 +397,17 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
 
   isEnabled(): boolean {
     return this.enabled;
+  }
+
+  isPausedForCopilot(languageId = vscode.window.activeTextEditor?.document.languageId): boolean {
+    if (!this.enabled || !languageId) {
+      return false;
+    }
+
+    return this.shouldSkipAutomaticRequestForCopilot(
+      languageId,
+      vscode.InlineCompletionTriggerKind.Automatic
+    );
   }
 
   dispose(): void {

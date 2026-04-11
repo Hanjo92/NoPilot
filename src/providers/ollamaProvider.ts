@@ -70,6 +70,10 @@ export class OllamaProvider implements AIProvider {
     }
   }
 
+  setCurrentModel(model: string): void {
+    this._info.currentModel = model;
+  }
+
   async complete(
     request: CompletionRequest,
     token: vscode.CancellationToken

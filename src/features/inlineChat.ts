@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ProviderManager } from '../providers/providerManager';
 import { CompletionRequest } from '../types';
 import { log, logError } from '../utils/logger';
+import { stripMarkdownCodeFences } from './inlineText';
 
 export async function handleInlineChat(providerManager: ProviderManager) {
   const editor = vscode.window.activeTextEditor;
@@ -63,18 +64,7 @@ export async function handleInlineChat(providerManager: ProviderManager) {
           return;
         }
 
-        let cleaned = response.text;
-        const fenceMatch = cleaned.match(/^```[\\w]*\\n([\\s\\S]*?)\\n?```\\s*$/);
-        if (fenceMatch) {
-          cleaned = fenceMatch[1];
-        } else if (cleaned.startsWith('```')) {
-          const lines = cleaned.split('\\n');
-          lines.shift();
-          if (lines.length > 0 && lines[lines.length - 1].trim() === '```') {
-            lines.pop();
-          }
-          cleaned = lines.join('\\n');
-        }
+        const cleaned = stripMarkdownCodeFences(response.text);
 
         const success = await editor.edit((editBuilder) => {
           editBuilder.replace(targetRange, cleaned);

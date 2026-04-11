@@ -1,0 +1,28 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": ".test-dist",
+    "rootDir": "src",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": [
+    "src/providers/modelSelection.ts",
+    "src/providers/modelSelection.test.ts",
+    "src/providers/providerCredentials.ts",
+    "src/providers/providerCredentials.test.ts",
+    "src/features/inlineText.ts",
+    "src/features/inlineText.test.ts",
+    "src/features/copilotDetection.ts",
+    "src/features/copilotDetection.test.ts",
+    "src/services/gitSelection.ts",
+    "src/services/gitSelection.test.ts",
+    "src/ui/statusBarPresentation.ts",
+    "src/ui/statusBarPresentation.test.ts",
+    "src/ui/settingsWebview.ts",
+    "src/ui/settingsWebview.test.ts",
+    "src/ui/settingsPanelActions.ts",
+    "src/ui/settingsPanelActions.test.ts"
+  ]
+}

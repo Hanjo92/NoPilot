@@ -1,0 +1,252 @@
+const SCRIPT_BOOTSTRAP_BLOCK = `const vscode = acquireVsCodeApi();
+let currentState = null;
+
+window.addEventListener('message', event => {
+  const message = event.data;
+  if (message.command === 'updateState') {
+    currentState = message.state;
+    render(currentState);
+  }
+});
+
+vscode.postMessage({ command: 'requestState' });
+
+function render(state) {
+  renderProviders(state.providers, state.activeProviderId);
+  renderInlineSettings(state.settings);
+  renderCommitSettings(state.settings);
+}`;
+
+const SCRIPT_PROVIDER_HELPER_BLOCK = `function getProviderStatusBadge(provider, isActive) {
+  if (isActive) {
+    return '<span class="badge active">✓ Active</span>';
+  }
+
+  if (provider.status === 'needs-key') {
+    return '<span class="badge needs-key">🔑 Key needed</span>';
+  }
+
+  if (provider.status === 'unavailable') {
+    return '<span class="badge unavailable">Unavailable</span>';
+  }
+
+  return '<span class="badge">Ready</span>';
+}
+
+function getProviderModelControl(provider) {
+  if (provider.availableModels.length === 0) {
+    return '<span style="opacity:0.5">' + (provider.currentModel || 'Auto-detect') + '</span>';
+  }
+
+  return '<select onchange="updateModel(\\'' + provider.id + '\\', this.value)">'
+    + provider.availableModels.map(model =>
+        '<option value="' + model + '"' + (model === provider.currentModel ? ' selected' : '') + '>' + model + '</option>'
+      ).join('')
+    + '</select>';
+}
+
+function getProviderActionsMarkup(provider, isActive) {
+  let actions = '';
+
+  if (!isActive && (provider.status === 'ready' || !provider.requiresApiKey)) {
+    actions += '<button class="primary" onclick="switchProvider(\\'' + provider.id + '\\')">Activate</button>';
+  }
+
+  if (!provider.requiresApiKey) {
+    return actions;
+  }
+
+  if (provider.hasApiKey) {
+    actions += '<button class="secondary" onclick="setApiKey(\\'' + provider.id + '\\')">Change Key</button>';
+    actions += '<button class="danger" onclick="removeApiKey(\\'' + provider.id + '\\')">Remove</button>';
+    return actions;
+  }
+
+  actions += '<button class="primary" onclick="setApiKey(\\'' + provider.id + '\\')">Set API Key</button>';
+  return actions;
+}
+
+function renderProviderCard(provider, activeId) {
+  const isActive = provider.id === activeId;
+  const statusBadge = getProviderStatusBadge(provider, isActive);
+  const modelControl = getProviderModelControl(provider);
+  const actions = getProviderActionsMarkup(provider, isActive);
+
+  return '<div class="provider-card' + (isActive ? ' active' : '') + '">'
+    + '<div class="card-header">'
+    + '  <div class="card-title"><span class="card-icon">' + provider.icon + '</span> ' + provider.name + '</div>'
+    + '  ' + statusBadge
+    + '</div>'
+    + '<div class="card-desc">' + provider.description + '</div>'
+    + '<div class="card-model">'
+    + '  <label>Model</label>'
+    + '  ' + modelControl
+    + '</div>'
+    + '<div class="card-actions">' + actions + '</div>'
+    + '</div>';
+}`;
+
+const SCRIPT_PROVIDER_RENDER_BLOCK = `function renderProviders(providers, activeId) {
+  const grid = document.getElementById('providerGrid');
+  grid.innerHTML = providers.map(provider => renderProviderCard(provider, activeId)).join('');
+}`;
+
+const SCRIPT_SETTINGS_RENDER_BLOCK = `const COMMIT_LANGUAGE_OPTIONS = [
+  { value: 'en', label: 'English' },
+  { value: 'ko', label: '한국어' },
+  { value: 'ja', label: '日本語' },
+  { value: 'zh', label: '中文' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+  { value: 'de', label: 'Deutsch' },
+];
+
+const COMMIT_FORMAT_OPTIONS = [
+  { value: 'conventional', label: 'Conventional Commits' },
+  { value: 'simple', label: 'Simple' },
+];
+
+const INLINE_SETTING_DEFINITIONS = [
+  {
+    label: 'Enabled',
+    description: 'Enable inline code suggestions',
+    type: 'toggle',
+    key: 'inline.enabled',
+    valueKey: 'inlineEnabled',
+  },
+  {
+    label: 'Pause for Copilot',
+    description: 'Skip automatic NoPilot suggestions when GitHub Copilot is active for this language',
+    type: 'toggle',
+    key: 'inline.pauseWhenCopilotActive',
+    valueKey: 'pauseWhenCopilotActive',
+  },
+  {
+    label: 'Debounce',
+    description: 'Delay before requesting completion (ms)',
+    type: 'number',
+    key: 'inline.debounceMs',
+    valueKey: 'debounceMs',
+    min: 100,
+    max: 2000,
+  },
+  {
+    label: 'Prefix Lines',
+    description: 'Lines of code before cursor for context',
+    type: 'number',
+    key: 'inline.maxPrefixLines',
+    valueKey: 'maxPrefixLines',
+    min: 5,
+    max: 200,
+  },
+  {
+    label: 'Suffix Lines',
+    description: 'Lines of code after cursor for context',
+    type: 'number',
+    key: 'inline.maxSuffixLines',
+    valueKey: 'maxSuffixLines',
+    min: 0,
+    max: 100,
+  },
+];
+
+function getInlineSettingControl(definition, settings) {
+  const value = settings[definition.valueKey];
+
+  if (definition.type === 'toggle') {
+    return toggleSwitch(definition.key, value);
+  }
+
+  return numberInput(definition.key, value, definition.min, definition.max);
+}
+
+function getInlineSettingsMarkup(settings) {
+  return renderSettingRows(INLINE_SETTING_DEFINITIONS.map(definition => ({
+    label: definition.label,
+    description: definition.description,
+    control: getInlineSettingControl(definition, settings),
+  })));
+}
+
+function getCommitSettingsMarkup(settings) {
+  return renderSettingRows([
+    {
+      label: 'Language',
+      description: 'Commit message language',
+      control: selectInput('commitMessage.language', settings.commitLanguage, COMMIT_LANGUAGE_OPTIONS),
+    },
+    {
+      label: 'Format',
+      description: 'Commit message format',
+      control: selectInput('commitMessage.format', settings.commitFormat, COMMIT_FORMAT_OPTIONS),
+    },
+  ]);
+}
+
+function renderInlineSettings(settings) {
+  const container = document.getElementById('inlineSettings');
+  container.innerHTML = getInlineSettingsMarkup(settings);
+}
+
+function renderCommitSettings(settings) {
+  const container = document.getElementById('commitSettings');
+  container.innerHTML = getCommitSettingsMarkup(settings);
+}`;
+
+const SCRIPT_INPUT_HELPER_BLOCK = `function renderSettingRows(rows) {
+  return rows.map(row => settingRow(row.label, row.description, row.control)).join('');
+}
+
+function settingRow(label, desc, control) {
+  return '<div class="setting-row">'
+    + '<div class="setting-label">'
+    + '  <span class="label-text">' + label + '</span>'
+    + '  <span class="label-desc">' + desc + '</span>'
+    + '</div>'
+    + '<div class="setting-control">' + control + '</div>'
+    + '</div>';
+}
+
+function toggleSwitch(key, checked) {
+  return '<label class="toggle">'
+    + '<input type="checkbox"' + (checked ? ' checked' : '')
+    + ' onchange="updateSetting(\\'' + key + '\\', this.checked)">'
+    + '<span class="slider"></span></label>';
+}
+
+function numberInput(key, value, min, max) {
+  return '<input type="number" value="' + value + '" min="' + min + '" max="' + max + '"'
+    + ' onchange="updateSetting(\\'' + key + '\\', parseInt(this.value))">';
+}
+
+function selectInput(key, value, options) {
+  return '<select onchange="updateSetting(\\'' + key + '\\', this.value)">'
+    + options.map(o =>
+        '<option value="' + o.value + '"' + (o.value === value ? ' selected' : '') + '>'
+        + o.label + '</option>'
+      ).join('')
+    + '</select>';
+}`;
+
+const SCRIPT_ACTION_BLOCK = `function switchProvider(id)  { vscode.postMessage({ command: 'switchProvider', providerId: id }); }
+function setApiKey(id)       { vscode.postMessage({ command: 'setApiKey', providerId: id }); }
+function removeApiKey(id)    { vscode.postMessage({ command: 'removeApiKey', providerId: id }); }
+function updateModel(id, m)  { vscode.postMessage({ command: 'updateModel', providerId: id, model: m }); }
+function updateSetting(k, v) { vscode.postMessage({ command: 'updateSetting', key: k, value: v }); }`;
+
+const SCRIPT_BLOCKS = [
+  SCRIPT_BOOTSTRAP_BLOCK,
+  SCRIPT_PROVIDER_HELPER_BLOCK,
+  SCRIPT_PROVIDER_RENDER_BLOCK,
+  SCRIPT_SETTINGS_RENDER_BLOCK,
+  SCRIPT_INPUT_HELPER_BLOCK,
+  SCRIPT_ACTION_BLOCK,
+];
+
+function joinBlocks(blocks: string[]): string {
+  return blocks.join('\n\n');
+}
+
+export function getSettingsWebviewScript(): string {
+  return joinBlocks(SCRIPT_BLOCKS);
+}

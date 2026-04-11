@@ -57,6 +57,13 @@ export class GeminiProvider implements AIProvider {
     }
   }
 
+  setCurrentModel(model: string): void {
+    this._info.currentModel = model;
+    if (this.genAI) {
+      this.model = this.genAI.getGenerativeModel({ model });
+    }
+  }
+
   async complete(
     request: CompletionRequest,
     token: vscode.CancellationToken

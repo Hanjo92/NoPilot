@@ -6,7 +6,9 @@ import { NoPilotInlineCompletionProvider } from './features/inlineCompletionProv
 import { CommitMessageGenerator } from './features/commitMessageGenerator';
 import { SettingsPanel } from './ui/settingsPanel';
 import { handleInlineChat } from './features/inlineChat';
+import { promptAndSaveProviderApiKey } from './providers/providerCredentials';
 import { log, getOutputChannel } from './utils/logger';
+import { getNoPilotStatusBarPresentation } from './ui/statusBarPresentation';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -49,12 +51,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     100
   );
   statusBarItem.command = 'nopilot.switchProvider';
-  updateStatusBar(providerManager);
+  const refreshStatusBar = () => updateStatusBar(providerManager, inlineProvider);
+  refreshStatusBar();
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
 
   // Update status bar when provider changes
-  providerManager.onDidChangeProvider(() => updateStatusBar(providerManager));
+  providerManager.onDidChangeProvider(refreshStatusBar);
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(() => refreshStatusBar())
+  );
 
   // ── Commands ──
 
@@ -92,7 +98,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       inlineProvider.toggle();
       const state = inlineProvider.isEnabled() ? 'enabled' : 'disabled';
       vscode.window.showInformationMessage(`NoPilot: Inline suggestions ${state}`);
-      updateStatusBar(providerManager, inlineProvider);
+      refreshStatusBar();
     })
   );
 
@@ -119,18 +125,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
       if (selected) {
         const provider = providerManager.getProvider(selected.id as any);
-        if (provider) {
-          const key = await authService.promptForApiKey(provider.info.name);
-          if (key) {
-            await authService.setApiKey(selected.id, key);
-            if ('refreshClient' in provider) {
-              await (provider as { refreshClient(): Promise<void> }).refreshClient();
-            }
-            vscode.window.showInformationMessage(
-              `NoPilot: ${provider.info.name} API key saved`
-            );
-            updateStatusBar(providerManager);
-          }
+        const didSave = await promptAndSaveProviderApiKey(
+          selected.id,
+          provider,
+          authService
+        );
+
+        if (didSave && provider) {
+          vscode.window.showInformationMessage(
+            `NoPilot: ${provider.info.name} API key saved`
+          );
+          refreshStatusBar();
         }
       }
     })
@@ -144,6 +149,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           .getConfiguration('nopilot')
           .get<string>('provider', 'vscode-lm');
         providerManager.switchProvider(newProvider as any);
+      }
+
+      if (
+        e.affectsConfiguration('nopilot.inline') ||
+        e.affectsConfiguration('github.copilot.enable') ||
+        e.affectsConfiguration('editor.inlineSuggest.enabled')
+      ) {
+        refreshStatusBar();
       }
     })
   );
@@ -159,10 +172,16 @@ function updateStatusBar(
   const displayName = providerManager.getActiveDisplayName();
   const active = providerManager.getActiveProvider();
   const info = active.info;
+  const presentation = getNoPilotStatusBarPresentation({
+    displayName,
+    providerName: info.name,
+    model: info.currentModel,
+    inlineEnabled: inlineProvider?.isEnabled() ?? true,
+    pausedForCopilot: inlineProvider?.isPausedForCopilot() ?? false,
+  });
 
-  const inlineIcon = inlineProvider && !inlineProvider.isEnabled() ? '$(circle-slash) ' : '';
-  statusBarItem.text = `${inlineIcon}$(sparkle) ${displayName}`;
-  statusBarItem.tooltip = `NoPilot — ${displayName}\nProvider: ${info.name} | Model: ${info.currentModel || 'auto'}\nClick to switch`;
+  statusBarItem.text = presentation.text;
+  statusBarItem.tooltip = presentation.tooltip;
 }
 
 export function deactivate(): void {

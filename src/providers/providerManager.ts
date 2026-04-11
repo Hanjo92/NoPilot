@@ -13,6 +13,11 @@ import { AnthropicProvider } from './anthropicProvider';
 import { OpenAIProvider } from './openaiProvider';
 import { GeminiProvider } from './geminiProvider';
 import { OllamaProvider } from './ollamaProvider';
+import {
+  promptAndSaveProviderApiKey,
+  refreshProviderClient,
+} from './providerCredentials';
+import { applyModelSelection } from './modelSelection';
 
 /**
  * Represents a selectable model entry in the unified Quick Pick.
@@ -115,22 +120,21 @@ export class ProviderManager implements vscode.Disposable {
 
     // Only prompt for API key if provider truly has no auth source
     if (info.requiresApiKey && !info.hasApiKey) {
-      const key = await this.authService.promptForApiKey(info.name);
-      if (!key) {
+      const didSave = await promptAndSaveProviderApiKey(
+        providerId,
+        provider,
+        this.authService
+      );
+      if (!didSave) {
         return; // User cancelled
-      }
-      await this.authService.setApiKey(providerId, key);
-
-      if ('refreshClient' in provider) {
-        await (provider as { refreshClient(): Promise<void> }).refreshClient();
       }
     }
 
     this.activeProviderId = providerId;
     this.activeModelKey = modelKey;
 
-    // Update the provider's current model
-    (provider.info as ProviderInfo).currentModel = modelKey;
+    // Update the live provider state, not the info snapshot copy
+    applyModelSelection(provider, modelKey);
 
     // Save to settings
     const config = vscode.workspace.getConfiguration('nopilot');
@@ -151,16 +155,14 @@ export class ProviderManager implements vscode.Disposable {
   async updateModel(providerId: ProviderId, model: string): Promise<void> {
     const provider = this.providers.get(providerId);
     if (provider) {
-      (provider.info as ProviderInfo).currentModel = model;
+      applyModelSelection(provider, model);
 
       const configKey = providerId === 'vscode-lm' ? 'model' : `${providerId}.model`;
       await vscode.workspace
         .getConfiguration('nopilot')
         .update(configKey, model, vscode.ConfigurationTarget.Global);
 
-      if ('refreshClient' in provider) {
-        await (provider as { refreshClient(): Promise<void> }).refreshClient();
-      }
+      await refreshProviderClient(provider);
 
       // If this is the active provider, update the active model key too
       if (providerId === this.activeProviderId) {

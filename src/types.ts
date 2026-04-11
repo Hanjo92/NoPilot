@@ -63,6 +63,9 @@ export interface AIProvider {
   /** Check if the provider is available and ready to use */
   isAvailable(): Promise<boolean>;
 
+  /** Update the provider's active model in live runtime state */
+  setCurrentModel(model: string): void;
+
   /** Generate inline code completion */
   complete(
     request: CompletionRequest,
@@ -95,6 +98,7 @@ export interface WebviewState {
   activeProviderId: ProviderId;
   settings: {
     inlineEnabled: boolean;
+    pauseWhenCopilotActive: boolean;
     debounceMs: number;
     maxPrefixLines: number;
     maxSuffixLines: number;

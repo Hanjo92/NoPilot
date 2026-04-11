@@ -55,6 +55,10 @@ export class AnthropicProvider implements AIProvider {
     return hasKey;
   }
 
+  setCurrentModel(model: string): void {
+    this._info.currentModel = model;
+  }
+
   async complete(
     request: CompletionRequest,
     token: vscode.CancellationToken

@@ -92,6 +92,10 @@ export class VscodeLmProvider implements AIProvider {
     }
   }
 
+  setCurrentModel(model: string): void {
+    this._info.currentModel = model;
+  }
+
   /** Build a human-readable label for a discovered model */
   private buildModelLabel(vendor: string, family: string, name: string): string {
     // Map known vendors to friendly names

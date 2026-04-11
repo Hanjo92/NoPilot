@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { chooseRepositoryIndex, collectRepositoryRootPaths } from './gitSelection';
 
 /** Git extension API types (subset) */
 interface GitExtension {
@@ -11,6 +12,7 @@ interface GitAPI {
 
 interface Repository {
   inputBox: { value: string };
+  rootUri?: vscode.Uri;
   diff(cached?: boolean): Promise<string>;
   state: {
     indexChanges: Change[];
@@ -28,6 +30,7 @@ interface Change {
  */
 export class GitService {
   private gitApi: GitAPI | undefined;
+  private lastRepository: Repository | undefined;
 
   /** Initialize by getting the Git extension API */
   async initialize(): Promise<boolean> {
@@ -48,9 +51,26 @@ export class GitService {
     }
   }
 
-  /** Get the primary repository */
-  private getRepository(): Repository | undefined {
-    return this.gitApi?.repositories[0];
+  /** Get the most relevant repository for the active editor, with fallback to the first repo */
+  private getRepository(activeUri?: vscode.Uri): Repository | undefined {
+    const repositories = this.gitApi?.repositories;
+    if (!repositories || repositories.length === 0) {
+      return undefined;
+    }
+
+    const fileBackedRepositories = repositories.filter(
+      (repository) => repository.rootUri?.scheme === 'file'
+    );
+    const activeFilePath = activeUri?.scheme === 'file' ? activeUri.fsPath : undefined;
+    const repositoryCandidates =
+      fileBackedRepositories.length > 0 ? fileBackedRepositories : repositories;
+    const repositoryRoots = collectRepositoryRootPaths(repositoryCandidates);
+    const repositoryIndex = repositoryRoots.length > 0
+      ? chooseRepositoryIndex(repositoryRoots, activeFilePath)
+      : 0;
+    const repository = repositoryCandidates[repositoryIndex] || repositoryCandidates[0];
+    this.lastRepository = repository;
+    return repository;
   }
 
   /**
@@ -58,7 +78,7 @@ export class GitService {
    * falls back to unstaged (working tree) changes.
    */
   async getDiff(): Promise<string> {
-    const repo = this.getRepository();
+    const repo = this.getRepository(vscode.window.activeTextEditor?.document.uri);
     if (!repo) {
       throw new Error('No Git repository found. Please open a folder with a Git repository.');
     }
@@ -78,7 +98,7 @@ export class GitService {
 
   /** Set the commit message in the SCM input box */
   setCommitMessage(message: string): void {
-    const repo = this.getRepository();
+    const repo = this.lastRepository || this.getRepository(vscode.window.activeTextEditor?.document.uri);
     if (repo) {
       repo.inputBox.value = message;
     }
