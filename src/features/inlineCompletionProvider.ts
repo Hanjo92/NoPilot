@@ -11,6 +11,11 @@ import {
   sliceLines,
 } from './inlineText';
 import {
+  buildDerivedContextCacheKey,
+  buildSymbolSnippetCacheKey,
+  InlineRequestAssemblyCache,
+} from './inlineContextCache';
+import {
   COPILOT_EXTENSION_ID,
   isCopilotEnabledForLanguage,
   shouldSkipNoPilotAutomaticInline,
@@ -35,6 +40,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
   private cache = new Map<string, string>();
   private cacheKeys: string[] = [];
   private readonly MAX_CACHE_SIZE = 50;
+  private readonly requestAssemblyCache = new InlineRequestAssemblyCache();
 
   constructor(private readonly providerManager: ProviderManager) {
     const config = vscode.workspace.getConfiguration('nopilot');
@@ -56,6 +62,19 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
           this.maxPrefixLines = cfg.get('inline.maxPrefixLines', 50);
           this.maxSuffixLines = cfg.get('inline.maxSuffixLines', 20);
         }
+      }),
+      vscode.workspace.onDidChangeTextDocument((event) => {
+        this.requestAssemblyCache.invalidateDocument(event.document.uri.toString());
+        this.requestAssemblyCache.clearSymbolLookups();
+      }),
+      vscode.workspace.onDidOpenTextDocument(() => {
+        this.requestAssemblyCache.clearDerivedContexts();
+        this.requestAssemblyCache.clearSymbolLookups();
+      }),
+      vscode.workspace.onDidCloseTextDocument((document) => {
+        this.requestAssemblyCache.invalidateDocument(document.uri.toString());
+        this.requestAssemblyCache.clearDerivedContexts();
+        this.requestAssemblyCache.clearSymbolLookups();
       })
     );
   }
@@ -132,7 +151,13 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     }
 
     const buildStart = Date.now();
-    const request = await this.buildRequest(document, position, requestPolicy, context.triggerKind);
+    const request = await this.buildRequest(
+      document,
+      position,
+      requestPolicy,
+      context.triggerKind,
+      cacheScope
+    );
     const buildDurationMs = Date.now() - buildStart;
     log(
       `Inline request #${requestId}: ${request.filename} (${request.language}), line ${position.line + 1}, prefix ${request.prefix.length} chars, build ${buildDurationMs}ms`
@@ -210,7 +235,8 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     document: vscode.TextDocument,
     position: vscode.Position,
     requestPolicy: ReturnType<typeof getInlineRequestPolicy>,
-    triggerKind: vscode.InlineCompletionTriggerKind
+    triggerKind: vscode.InlineCompletionTriggerKind,
+    cacheScope: string
   ): Promise<CompletionRequest> {
     const prefixLineBudget = Math.min(
       this.maxPrefixLines,
@@ -230,84 +256,15 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       suffixEndLine, document.lineAt(suffixEndLine).text.length
     );
     const suffix = document.getText(suffixRange);
-
-    let additionalContext = '';
-
-    if (requestPolicy.includeAdditionalContext) {
-      // 1. Fetch beginning of the current file if prefix doesn't cover it (useful for imports, class variables)
-      if (prefixStartLine > 0) {
-        const topLines = Math.min(prefixStartLine, 50); // Get up to 50 lines of the top of the file
-        additionalContext += `// Top of current file:\n${document.getText(new vscode.Range(0, 0, topLines, 0))}\n\n`;
-      }
-
-      // 2. Fetch snippets from other open text documents (same language) to establish cross-file context
-      const openDocs = vscode.workspace.textDocuments.filter(
-        (doc) => doc.uri.toString() !== document.uri.toString() && doc.languageId === document.languageId
-      );
-
-      // Get up to 3 recently active related files, taking the first 1500 chars of each
-      for (const doc of openDocs.slice(0, 3)) {
-         const text = doc.getText();
-         const snippet = text.length > 1500 ? text.substring(0, 1500) + '\n... (truncated)' : text;
-         const filename = doc.fileName.split(/[/\\]/).pop();
-         additionalContext += `// Open file: ${filename}\n${snippet}\n\n`;
-      }
-
-      // 3. Heuristic: Semantic Class Reference Fetching
-      // Extract recent PascalCase words that look like class/struct names from the prefix
-      // Attempt to find files matching these words in the workspace (up to 4 words)
-      const ext = document.fileName.substring(document.fileName.lastIndexOf('.'));
-      const searchWords = extractReferencedWords(prefix).reverse().slice(0, 4);
-      
-      if (searchWords.length > 0) {
-        const searchPromises = searchWords.map(async (word) => {
-          try {
-            // 1. Try LSP Workspace Symbol Provider (resolves interfaces, structs, classes accurately)
-            const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
-              'vscode.executeWorkspaceSymbolProvider',
-              word
-            );
-
-            if (symbols && symbols.length > 0) {
-              // Find an exact match for Class, Interface, or Struct
-              const targetSymbol = symbols.find(s => 
-                s.name === word && 
-                (s.kind === vscode.SymbolKind.Class || s.kind === vscode.SymbolKind.Interface || s.kind === vscode.SymbolKind.Struct)
-              );
-
-              if (targetSymbol && targetSymbol.location.uri.toString() !== document.uri.toString()) {
-                const fileData = await vscode.workspace.fs.readFile(targetSymbol.location.uri);
-                const text = Buffer.from(fileData).toString('utf8');
-                const startLine = Math.max(0, targetSymbol.location.range.start.line - 2);
-                const snippet = sliceLines(text, startLine, 50);
-                const filename = targetSymbol.location.uri.path.split(/[/\\]/).pop();
-                return `// Referenced Symbol: ${word} (from ${filename})\n${snippet}\n\n`;
-              }
-            }
-
-            // 2. Fallback: Find exact file name (e.g. "ShopModel.cs")
-            const uris = await vscode.workspace.findFiles(`**/${word}${ext}`, '**/node_modules/**', 1);
-            if (uris.length > 0 && uris[0].toString() !== document.uri.toString()) {
-              const fileData = await vscode.workspace.fs.readFile(uris[0]);
-              const text = Buffer.from(fileData).toString('utf8');
-              const snippet = sliceLines(text, 0, 50);
-              return `// Referenced Class File: ${word}${ext}\n${snippet}\n\n`;
-            }
-          } catch (_error) {
-            // Ignore read errors
-          }
-          return '';
-        });
-
-        // Wait for file searches, but bound the time to avoid slowing down inline completion
-        const results = await Promise.race([
-          Promise.all(searchPromises),
-          new Promise<string[]>((resolve) => setTimeout(() => resolve([]), 200)) // 200ms timeout
-        ]);
-        
-        additionalContext += results.filter(Boolean).join('');
-      }
-    }
+    const searchWords = extractReferencedWords(prefix).reverse().slice(0, 4);
+    const additionalContext = await this.buildAdditionalContext(
+      document,
+      prefix,
+      prefixStartLine,
+      requestPolicy,
+      cacheScope,
+      searchWords
+    );
 
     // Single-line vs Multi-line logic
     const currentLine = document.lineAt(position.line).text;
@@ -326,6 +283,179 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       stopSequences,
       maxTokens: requestPolicy.maxTokens,
     };
+  }
+
+  private async buildAdditionalContext(
+    document: vscode.TextDocument,
+    prefix: string,
+    prefixStartLine: number,
+    requestPolicy: ReturnType<typeof getInlineRequestPolicy>,
+    cacheScope: string,
+    searchWords: string[]
+  ): Promise<string> {
+    if (!requestPolicy.includeAdditionalContext) {
+      return '';
+    }
+
+    const contextKey = buildDerivedContextCacheKey({
+      scope: cacheScope,
+      documentUri: document.uri.toString(),
+      documentVersion: document.version,
+      language: document.languageId,
+      prefixStartLine,
+      referencedWords: searchWords,
+    });
+    const cachedContext = await this.requestAssemblyCache.getDerivedContext(
+      contextKey,
+      async () => {
+        let additionalContext = '';
+        const dependencyUris = new Set<string>([document.uri.toString()]);
+
+        if (prefixStartLine > 0) {
+          const topLines = Math.min(prefixStartLine, 50);
+          additionalContext += `// Top of current file:\n${document.getText(new vscode.Range(0, 0, topLines, 0))}\n\n`;
+        }
+
+        const openDocs = vscode.workspace.textDocuments.filter(
+          (doc) =>
+            doc.uri.toString() !== document.uri.toString() &&
+            doc.languageId === document.languageId
+        );
+
+        for (const doc of openDocs.slice(0, 3)) {
+          const text = doc.getText();
+          const snippet =
+            text.length > 1500 ? text.substring(0, 1500) + '\n... (truncated)' : text;
+          const filename = doc.fileName.split(/[/\\]/).pop();
+          dependencyUris.add(doc.uri.toString());
+          additionalContext += `// Open file: ${filename}\n${snippet}\n\n`;
+        }
+
+        if (searchWords.length > 0) {
+          const extension = this.getFileExtension(document.fileName);
+          const searchPromises = searchWords.map((word) =>
+            this.resolveReferencedSymbolSnippet(document, extension, word)
+          );
+          const results = await Promise.race([
+            Promise.all(searchPromises),
+            new Promise<Array<{ value: string; dependencyUris: string[] }>>((resolve) =>
+              setTimeout(() => resolve([]), 200)
+            ),
+          ]);
+
+          for (const result of results) {
+            if (!result.value) {
+              continue;
+            }
+
+            additionalContext += result.value;
+            result.dependencyUris.forEach((uri) => dependencyUris.add(uri));
+          }
+        }
+
+        return {
+          value: additionalContext.trim(),
+          dependencyUris: Array.from(dependencyUris),
+        };
+      }
+    );
+
+    log(
+      `Inline context cache ${cachedContext.hit ? 'hit' : 'miss'}: ${document.uri.toString()}@${document.version}`
+    );
+
+    return cachedContext.value;
+  }
+
+  private async resolveReferencedSymbolSnippet(
+    document: vscode.TextDocument,
+    extension: string,
+    word: string
+  ): Promise<{ value: string; dependencyUris: string[] }> {
+    const cacheKey = buildSymbolSnippetCacheKey({
+      word,
+      extension,
+      excludeUri: document.uri.toString(),
+    });
+    const cachedSnippet = await this.requestAssemblyCache.getSymbolSnippet(
+      cacheKey,
+      async () => {
+        try {
+          const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+            'vscode.executeWorkspaceSymbolProvider',
+            word
+          );
+
+          if (symbols && symbols.length > 0) {
+            const targetSymbol = symbols.find(
+              (symbol) =>
+                symbol.name === word &&
+                (symbol.kind === vscode.SymbolKind.Class ||
+                  symbol.kind === vscode.SymbolKind.Interface ||
+                  symbol.kind === vscode.SymbolKind.Struct)
+            );
+
+            if (
+              targetSymbol &&
+              targetSymbol.location.uri.toString() !== document.uri.toString()
+            ) {
+              const fileData = await vscode.workspace.fs.readFile(targetSymbol.location.uri);
+              const text = Buffer.from(fileData).toString('utf8');
+              const startLine = Math.max(0, targetSymbol.location.range.start.line - 2);
+              const snippet = sliceLines(text, startLine, 50);
+              const filename = targetSymbol.location.uri.path.split(/[/\\]/).pop();
+
+              return {
+                value: `// Referenced Symbol: ${word} (from ${filename})\n${snippet}\n\n`,
+                dependencyUris: [targetSymbol.location.uri.toString()],
+              };
+            }
+          }
+
+          if (!extension) {
+            return {
+              value: '',
+              dependencyUris: [],
+            };
+          }
+
+          const uris = await vscode.workspace.findFiles(
+            `**/${word}${extension}`,
+            '**/node_modules/**',
+            1
+          );
+          if (uris.length > 0 && uris[0].toString() !== document.uri.toString()) {
+            const fileData = await vscode.workspace.fs.readFile(uris[0]);
+            const text = Buffer.from(fileData).toString('utf8');
+            const snippet = sliceLines(text, 0, 50);
+
+            return {
+              value: `// Referenced Class File: ${word}${extension}\n${snippet}\n\n`,
+              dependencyUris: [uris[0].toString()],
+            };
+          }
+        } catch (_error) {
+          // Ignore lookup/read errors
+        }
+
+        return {
+          value: '',
+          dependencyUris: [],
+        };
+      }
+    );
+
+    log(`Inline symbol cache ${cachedSnippet.hit ? 'hit' : 'miss'}: ${word}`);
+
+    return {
+      value: cachedSnippet.value,
+      dependencyUris: cachedSnippet.dependencyUris,
+    };
+  }
+
+  private getFileExtension(filename: string): string {
+    const dotIndex = filename.lastIndexOf('.');
+    return dotIndex >= 0 ? filename.substring(dotIndex) : '';
   }
 
   private shouldSkipAutomaticRequestForCopilot(
