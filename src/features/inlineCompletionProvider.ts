@@ -3,13 +3,12 @@ import { ProviderManager } from '../providers/providerManager';
 import { CompletionRequest } from '../types';
 import { log, logError } from '../utils/logger';
 import {
+  cleanInlineCompletionText,
   buildInlineCacheScope,
   extractReferencedWords,
   getInlineRequestPolicy,
   getInlineStopSequences,
   sliceLines,
-  stripMarkdownCodeFences,
-  trimSingleLineCompletion,
 } from './inlineText';
 import {
   COPILOT_EXTENSION_ID,
@@ -159,12 +158,12 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
         return undefined;
       }
 
-      const cleanedText = this.cleanResponseText(
-        response.text,
-        request.prefix,
-        request.suffix,
-        request.stopSequences
-      );
+      const cleanedText = cleanInlineCompletionText({
+        text: response.text,
+        prefix: request.prefix,
+        suffix: request.suffix,
+        stopSequences: request.stopSequences,
+      });
 
       if (!cleanedText) {
         log(`Inline #${requestId}: empty after cleanup`);
@@ -343,59 +342,6 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
         languageId
       ),
     });
-  }
-
-  private cleanResponseText(
-    text: string,
-    prefix: string,
-    suffix: string,
-    stopSequences?: string[]
-  ): string {
-    let cleaned = stripMarkdownCodeFences(text.trimEnd());
-
-    // 1. Remove common overlap with the exact characters before the cursor
-    // e.g., prefix ends with "ShopModel", AI outputs "ShopModel data ="
-    for (let i = Math.min(60, prefix.length); i > 0; i--) {
-      const slice = prefix.slice(-i);
-      if (cleaned.startsWith(slice)) {
-        cleaned = cleaned.substring(slice.length);
-        break;
-      }
-    }
-
-    // 2. Remove common overlap with the exact characters after the cursor
-    for (let i = Math.min(60, suffix.length, cleaned.length); i > 0; i--) {
-      const slice = suffix.slice(0, i);
-      if (cleaned.endsWith(slice)) {
-        cleaned = cleaned.substring(0, cleaned.length - slice.length);
-        break;
-      }
-    }
-
-    // 3. Truncate if the AI starts generating lines that already exist in the suffix
-    // This happens frequently when AI fails to stop generating.
-    const suffixLines = suffix.split('\n').map(l => l.trim()).filter(l => l.length > 5);
-    if (suffixLines.length > 0) {
-      const cleanedLines = cleaned.split('\n');
-      let truncateIdx = -1;
-      for (let i = 0; i < cleanedLines.length; i++) {
-        const lineTrim = cleanedLines[i].trim();
-        // If a line from the AI output exactly matches a significant line in the suffix
-        if (lineTrim.length > 5 && suffixLines.includes(lineTrim)) {
-           truncateIdx = i;
-           break;
-        }
-      }
-      if (truncateIdx !== -1) {
-         cleaned = cleanedLines.slice(0, truncateIdx).join('\n');
-      }
-    }
-
-    if (stopSequences?.includes('\n')) {
-      cleaned = trimSingleLineCompletion(cleaned);
-    }
-
-    return cleaned;
   }
 
   /**

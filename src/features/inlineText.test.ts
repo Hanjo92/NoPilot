@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  cleanInlineCompletionText,
   extractReferencedWords,
   getInlineStopSequences,
   sliceLines,
@@ -96,4 +97,26 @@ test('buildInlineCacheScope separates provider and model variants', async () => 
     (inlineText as any).buildInlineCacheScope('openai', ''),
     'openai::auto'
   );
+});
+
+test('cleanInlineCompletionText removes conversational lead-in before code', () => {
+  const cleaned = cleanInlineCompletionText({
+    text: "Sure, here's the completion:\nvalue + 1",
+    prefix: 'const next = ',
+    suffix: ';',
+    stopSequences: ['\n'],
+  });
+
+  assert.equal(cleaned, 'value + 1');
+});
+
+test('cleanInlineCompletionText removes trailing explanation after a code block', () => {
+  const cleaned = cleanInlineCompletionText({
+    text: 'if (ready) {\n  run();\n}\n\nExplanation: call run when ready.',
+    prefix: '',
+    suffix: '',
+    stopSequences: undefined,
+  });
+
+  assert.equal(cleaned, 'if (ready) {\n  run();\n}');
 });
