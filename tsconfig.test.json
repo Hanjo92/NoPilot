@@ -20,6 +20,8 @@
     "src/providers/providerCredentials.test.ts",
     "src/features/inlineText.ts",
     "src/features/inlineText.test.ts",
+    "src/features/inlineContextCache.ts",
+    "src/features/inlineContextCache.test.ts",
     "src/features/copilotDetection.ts",
     "src/features/copilotDetection.test.ts",
     "src/services/gitSelection.ts",
