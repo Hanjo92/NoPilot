@@ -46,6 +46,31 @@ export function normalizeOllamaEndpoint(endpoint: string): string {
   return `http://${trimmed.replace(/\/+$/, '')}`;
 }
 
+export function buildOllamaGenerateOptions(input: {
+  maxTokens: number;
+  temperature: number;
+  stopSequences?: string[];
+}): {
+  num_predict: number;
+  temperature: number;
+  stop?: string[];
+} {
+  const options: {
+    num_predict: number;
+    temperature: number;
+    stop?: string[];
+  } = {
+    num_predict: input.maxTokens,
+    temperature: input.temperature,
+  };
+
+  if (input.stopSequences?.length) {
+    options.stop = input.stopSequences;
+  }
+
+  return options;
+}
+
 function buildOllamaUrl(endpoint: string, path: string): string {
   return `${normalizeOllamaEndpoint(endpoint)}${path}`;
 }

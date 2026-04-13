@@ -12,6 +12,8 @@
     "src/providers/modelSelection.test.ts",
     "src/providers/ollamaModels.ts",
     "src/providers/ollamaModels.test.ts",
+    "src/providers/prompts.ts",
+    "src/providers/prompts.test.ts",
     "src/providers/providerCredentials.ts",
     "src/providers/providerCredentials.test.ts",
     "src/features/inlineText.ts",

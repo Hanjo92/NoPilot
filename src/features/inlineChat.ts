@@ -41,6 +41,7 @@ export async function handleInlineChat(providerManager: ProviderManager) {
   const suffix = document.getText(suffixRange);
 
   const request: CompletionRequest = {
+    mode: 'chat',
     prefix,
     suffix,
     selection: selectionText,

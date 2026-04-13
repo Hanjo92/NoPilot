@@ -7,6 +7,7 @@ import {
   ProviderInfo,
 } from '../types';
 import {
+  buildOllamaGenerateOptions,
   fetchAvailableCompletionModels,
   readOllamaErrorMessage,
 } from './ollamaModels';
@@ -105,10 +106,11 @@ export class OllamaProvider implements AIProvider {
           model,
           prompt,
           stream: false,
-          options: {
-            num_predict: request.maxTokens || 512,
+          options: buildOllamaGenerateOptions({
+            maxTokens: request.maxTokens || 512,
             temperature: 0.2,
-          },
+            stopSequences: request.stopSequences,
+          }),
         }),
         signal: abortController.signal,
       });
