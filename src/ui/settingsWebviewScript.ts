@@ -1,20 +1,26 @@
 const SCRIPT_BOOTSTRAP_BLOCK = `const vscode = acquireVsCodeApi();
 let currentState = null;
+let ollamaRefreshPending = false;
+let pendingOllamaEndpoint = '';
+let interactionHandlersBound = false;
 
 window.addEventListener('message', event => {
   const message = event.data;
   if (message.command === 'updateState') {
     currentState = message.state;
+    ollamaRefreshPending = false;
+    pendingOllamaEndpoint = '';
     render(currentState);
   }
 });
 
+ensureInteractionHandlersBound();
 vscode.postMessage({ command: 'requestState' });
 
 function render(state) {
   renderProviders(state.providers, state.activeProviderId);
   renderInlineSettings(state.settings);
-  renderOllamaSettings(state.settings);
+  renderOllamaSettings(state);
   renderCommitSettings(state.settings);
 }`;
 
@@ -39,7 +45,7 @@ function getProviderModelControl(provider) {
     return '<span style="opacity:0.5">' + (provider.currentModel || 'Auto-detect') + '</span>';
   }
 
-  return '<select onchange="updateModel(\\'' + provider.id + '\\', this.value)">'
+  return '<select data-model-provider-id="' + provider.id + '">'
     + provider.availableModels.map(model =>
         '<option value="' + model + '"' + (model === provider.currentModel ? ' selected' : '') + '>' + model + '</option>'
       ).join('')
@@ -50,7 +56,7 @@ function getProviderActionsMarkup(provider, isActive) {
   let actions = '';
 
   if (!isActive && (provider.status === 'ready' || !provider.requiresApiKey)) {
-    actions += '<button class="primary" onclick="switchProvider(\\'' + provider.id + '\\')">Activate</button>';
+    actions += '<button class="primary" data-action="switchProvider" data-provider-id="' + provider.id + '">Activate</button>';
   }
 
   if (!provider.requiresApiKey) {
@@ -58,12 +64,12 @@ function getProviderActionsMarkup(provider, isActive) {
   }
 
   if (provider.hasApiKey) {
-    actions += '<button class="secondary" onclick="setApiKey(\\'' + provider.id + '\\')">Change Key</button>';
-    actions += '<button class="danger" onclick="removeApiKey(\\'' + provider.id + '\\')">Remove</button>';
+    actions += '<button class="secondary" data-action="setApiKey" data-provider-id="' + provider.id + '">Change Key</button>';
+    actions += '<button class="danger" data-action="removeApiKey" data-provider-id="' + provider.id + '">Remove</button>';
     return actions;
   }
 
-  actions += '<button class="primary" onclick="setApiKey(\\'' + provider.id + '\\')">Set API Key</button>';
+  actions += '<button class="primary" data-action="setApiKey" data-provider-id="' + provider.id + '">Set API Key</button>';
   return actions;
 }
 
@@ -184,12 +190,65 @@ function getCommitSettingsMarkup(settings) {
   ]);
 }
 
-function getOllamaSettingsMarkup(settings) {
-  return renderSettingRows([
+function getOllamaProvider(state) {
+  return state.providers.find(provider => provider.id === 'ollama') || null;
+}
+
+function getOllamaStatusMarkup(state) {
+  const provider = getOllamaProvider(state);
+
+  if (!provider) {
+    return '';
+  }
+
+  const count = provider.availableModels.length;
+  const selected = provider.currentModel || 'None';
+  const status = provider.status === 'ready'
+    ? count + ' completion model' + (count === 1 ? '' : 's') + ' loaded'
+    : 'Unable to load completion models';
+
+  return '<div class="settings-note ollama-status-note">'
+    + '<strong>Status:</strong> ' + status
+    + ' · <strong>Selected:</strong> ' + selected
+    + '</div>';
+}
+
+function getOllamaModelPreviewMarkup(state) {
+  const provider = getOllamaProvider(state);
+
+  if (!provider || provider.availableModels.length === 0) {
+    return '';
+  }
+
+  const previewModels = provider.availableModels.slice(0, 6);
+  const remainingCount = provider.availableModels.length - previewModels.length;
+  const suffix = remainingCount > 0 ? ' +' + remainingCount + ' more' : '';
+
+  return '<div class="settings-note ollama-model-preview">'
+    + '<strong>Models from endpoint:</strong> '
+    + previewModels.join(', ')
+    + suffix
+    + '</div>';
+}
+
+function getOllamaSettingsMarkup(state) {
+  const settings = state.settings;
+  const provider = getOllamaProvider(state);
+  const endpointValue = ollamaRefreshPending && pendingOllamaEndpoint
+    ? pendingOllamaEndpoint
+    : settings.ollamaEndpoint;
+  const readyLabel = provider && provider.availableModels.length > 0
+    ? 'Apply & Refresh (' + provider.availableModels.length + ')'
+    : 'Apply & Refresh';
+  const buttonLabel = ollamaRefreshPending ? 'Refreshing...' : readyLabel;
+
+  return getOllamaStatusMarkup(state)
+    + getOllamaModelPreviewMarkup(state)
+    + renderSettingRows([
     {
       label: 'Endpoint',
       description: 'HTTP endpoint for your local or remote Ollama server',
-      control: textInput('ollama.endpoint', settings.ollamaEndpoint, 'http://localhost:11434'),
+      control: ollamaEndpointControl(endpointValue, buttonLabel),
     },
   ]);
 }
@@ -199,9 +258,9 @@ function renderInlineSettings(settings) {
   container.innerHTML = getInlineSettingsMarkup(settings);
 }
 
-function renderOllamaSettings(settings) {
+function renderOllamaSettings(state) {
   const container = document.getElementById('ollamaSettings');
-  container.innerHTML = getOllamaSettingsMarkup(settings);
+  container.innerHTML = getOllamaSettingsMarkup(state);
 }
 
 function renderCommitSettings(settings) {
@@ -226,27 +285,44 @@ function settingRow(label, desc, control) {
 function toggleSwitch(key, checked) {
   return '<label class="toggle">'
     + '<input type="checkbox"' + (checked ? ' checked' : '')
-    + ' onchange="updateSetting(\\'' + key + '\\', this.checked)">'
+    + ' data-setting-key="' + key + '">'
     + '<span class="slider"></span></label>';
 }
 
 function numberInput(key, value, min, max) {
   return '<input type="number" value="' + value + '" min="' + min + '" max="' + max + '"'
-    + ' onchange="updateSetting(\\'' + key + '\\', parseInt(this.value))">';
+    + ' data-setting-key="' + key + '">';
+}
+
+function ollamaEndpointControl(value, buttonLabel) {
+  return '<div class="ollama-endpoint-control">'
+    + '<input id="ollamaEndpointInput" type="text" value="' + value + '" placeholder="http://localhost:11434"'
+    + ' data-setting-key="ollama.endpoint">'
+    + '<button class="primary" data-action="refreshOllama">' + buttonLabel + '</button>'
+    + '</div>';
 }
 
 function textInput(key, value, placeholder) {
   return '<input type="text" value="' + value + '" placeholder="' + placeholder + '"'
-    + ' onchange="updateSetting(\\'' + key + '\\', this.value.trim())">';
+    + ' data-setting-key="' + key + '">';
 }
 
 function selectInput(key, value, options) {
-  return '<select onchange="updateSetting(\\'' + key + '\\', this.value)">'
+  return '<select data-setting-key="' + key + '">'
     + options.map(o =>
         '<option value="' + o.value + '"' + (o.value === value ? ' selected' : '') + '>'
         + o.label + '</option>'
       ).join('')
     + '</select>';
+
+}
+
+function setOllamaRefreshPending(pending, endpointValue) {
+  ollamaRefreshPending = pending;
+  pendingOllamaEndpoint = pending ? (endpointValue || '') : '';
+  if (currentState) {
+    render(currentState);
+  }
 }`;
 
 const SCRIPT_ACTION_BLOCK = `function switchProvider(id)  { vscode.postMessage({ command: 'switchProvider', providerId: id }); }
@@ -255,6 +331,102 @@ function removeApiKey(id)    { vscode.postMessage({ command: 'removeApiKey', pro
 function updateModel(id, m)  { vscode.postMessage({ command: 'updateModel', providerId: id, model: m }); }
 function updateSetting(k, v) { vscode.postMessage({ command: 'updateSetting', key: k, value: v }); }`;
 
+const SCRIPT_INTERACTION_BLOCK = `function ensureInteractionHandlersBound() {
+  if (interactionHandlersBound) {
+    return;
+  }
+
+  interactionHandlersBound = true;
+
+  document.addEventListener('click', event => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    const actionElement = event.target.closest('[data-action]');
+    if (!(actionElement instanceof HTMLElement)) {
+      return;
+    }
+
+    const { action, providerId } = actionElement.dataset;
+
+    if (action === 'switchProvider' && providerId) {
+      switchProvider(providerId);
+      return;
+    }
+
+    if (action === 'setApiKey' && providerId) {
+      setApiKey(providerId);
+      return;
+    }
+
+    if (action === 'removeApiKey' && providerId) {
+      removeApiKey(providerId);
+      return;
+    }
+
+    if (action === 'refreshOllama') {
+      refreshOllama();
+    }
+  });
+
+  document.addEventListener('change', event => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    const modelProviderId = target.dataset.modelProviderId;
+    if (modelProviderId) {
+      updateModel(modelProviderId, target.value);
+      return;
+    }
+
+    const settingKey = target.dataset.settingKey;
+    if (!settingKey || settingKey === 'ollama.endpoint') {
+      return;
+    }
+
+    if (target instanceof HTMLInputElement && target.type === 'checkbox') {
+      updateSetting(settingKey, target.checked);
+      return;
+    }
+
+    if (target instanceof HTMLInputElement && target.type === 'number') {
+      updateSetting(settingKey, parseInt(target.value, 10));
+      return;
+    }
+
+    updateSetting(settingKey, target.value.trim());
+  });
+
+  document.addEventListener('keydown', event => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+
+    if (target.id === 'ollamaEndpointInput' && event.key === 'Enter') {
+      event.preventDefault();
+      refreshOllama();
+    }
+  });
+}
+
+function getOllamaEndpointValue() {
+  const input = document.getElementById('ollamaEndpointInput');
+  return input ? input.value.trim() : '';
+}
+
+function refreshOllama() {
+  const endpoint = getOllamaEndpointValue();
+  setOllamaRefreshPending(true, endpoint);
+  vscode.postMessage({
+    command: 'refreshOllama',
+    endpoint,
+  });
+}`;
+
 const SCRIPT_BLOCKS = [
   SCRIPT_BOOTSTRAP_BLOCK,
   SCRIPT_PROVIDER_HELPER_BLOCK,
@@ -262,6 +434,7 @@ const SCRIPT_BLOCKS = [
   SCRIPT_SETTINGS_RENDER_BLOCK,
   SCRIPT_INPUT_HELPER_BLOCK,
   SCRIPT_ACTION_BLOCK,
+  SCRIPT_INTERACTION_BLOCK,
 ];
 
 function joinBlocks(blocks: string[]): string {

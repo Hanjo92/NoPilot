@@ -10,6 +10,8 @@
   "include": [
     "src/providers/modelSelection.ts",
     "src/providers/modelSelection.test.ts",
+    "src/providers/ollamaModels.ts",
+    "src/providers/ollamaModels.test.ts",
     "src/providers/providerCredentials.ts",
     "src/providers/providerCredentials.test.ts",
     "src/features/inlineText.ts",
@@ -20,6 +22,8 @@
     "src/services/gitSelection.test.ts",
     "src/ui/statusBarPresentation.ts",
     "src/ui/statusBarPresentation.test.ts",
+    "src/ui/settingsPanelState.ts",
+    "src/ui/settingsPanelState.test.ts",
     "src/ui/settingsWebview.ts",
     "src/ui/settingsWebview.test.ts",
     "src/ui/settingsPanelActions.ts",

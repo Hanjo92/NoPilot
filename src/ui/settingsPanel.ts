@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import { ProviderManager } from '../providers/providerManager';
 import { AuthService } from '../services/authService';
-import { WebviewMessage, WebviewState } from '../types';
+import { WebviewMessage } from '../types';
 import { handleSettingsPanelMessage } from './settingsPanelActions';
+import { buildSettingsWebviewState } from './settingsPanelState';
 import { createNonce, getSettingsWebviewHtml } from './settingsWebview';
+import { log, logError } from '../utils/logger';
 
 /**
  * Manages the Webview-based settings panel.
@@ -27,7 +29,9 @@ export class SettingsPanel {
 
     // Handle messages from the webview
     this.panel.webview.onDidReceiveMessage(
-      (message: WebviewMessage) => this.handleMessage(message),
+      (message: WebviewMessage) => {
+        void this.handleMessage(message);
+      },
       null,
       this.disposables
     );
@@ -85,44 +89,67 @@ export class SettingsPanel {
   /** Send current state to the webview */
   private async sendStateToWebview(): Promise<void> {
     const config = vscode.workspace.getConfiguration('nopilot');
+    const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
+    const state = await buildSettingsWebviewState({
+      getProvider: (providerId) => this.providerManager.getProvider(providerId),
+      getAllProviderInfos: () => this.providerManager.getAllProviderInfos(),
+      getActiveProviderId: () => this.providerManager.getActiveProviderId(),
+      getSetting: <T>(key: string, defaultValue: T) => {
+        if (key === 'ollama.endpoint') {
+          return ollamaConfig.get('endpoint', defaultValue);
+        }
 
-    const state: WebviewState = {
-      providers: this.providerManager.getAllProviderInfos(),
-      activeProviderId: this.providerManager.getActiveProviderId(),
-      settings: {
-        inlineEnabled: config.get('inline.enabled', true),
-        pauseWhenCopilotActive: config.get('inline.pauseWhenCopilotActive', true),
-        debounceMs: config.get('inline.debounceMs', 300),
-        maxPrefixLines: config.get('inline.maxPrefixLines', 50),
-        maxSuffixLines: config.get('inline.maxSuffixLines', 20),
-        ollamaEndpoint: config.get('ollama.endpoint', 'http://localhost:11434'),
-        commitLanguage: config.get('commitMessage.language', 'en'),
-        commitFormat: config.get('commitMessage.format', 'conventional'),
+        return config.get(key, defaultValue);
       },
-    };
+    });
+
+    const ollama = state.providers.find((provider) => provider.id === 'ollama');
+    log(
+      `SettingsPanel state sent | endpoint: ${state.settings.ollamaEndpoint} | ollama status: ${ollama?.status ?? 'missing'} | models: ${ollama?.availableModels.length ?? 0}`
+    );
 
     this.panel.webview.postMessage({ command: 'updateState', state });
   }
 
   /** Handle messages from the webview */
   private async handleMessage(message: WebviewMessage): Promise<void> {
-    await handleSettingsPanelMessage(message, {
-      getProvider: (providerId) => this.providerManager.getProvider(providerId as any),
-      switchProvider: (providerId) => this.providerManager.switchProvider(providerId as any),
-      updateModel: (providerId, model) =>
-        this.providerManager.updateModel(providerId as any, model),
-      promptForApiKey: (providerName) => this.authService.promptForApiKey(providerName),
-      setApiKey: (providerId, key) => this.authService.setApiKey(providerId, key),
-      removeApiKey: (providerId) => this.authService.removeApiKey(providerId),
-      updateSetting: async (key, value) => {
-        const config = vscode.workspace.getConfiguration('nopilot');
-        await config.update(key, value, vscode.ConfigurationTarget.Global);
-      },
-      openExternal: async (url) => {
-        await vscode.env.openExternal(vscode.Uri.parse(url));
-      },
-      sendState: () => this.sendStateToWebview(),
-    });
+    log(`SettingsPanel received command=${message.command}`);
+
+    try {
+      await handleSettingsPanelMessage(message, {
+        getProvider: (providerId) => this.providerManager.getProvider(providerId as any),
+        switchProvider: (providerId) => this.providerManager.switchProvider(providerId as any),
+        updateModel: (providerId, model) =>
+          this.providerManager.updateModel(providerId as any, model),
+        promptForApiKey: (providerName) => this.authService.promptForApiKey(providerName),
+        setApiKey: (providerId, key) => this.authService.setApiKey(providerId, key),
+        removeApiKey: (providerId) => this.authService.removeApiKey(providerId),
+        updateSetting: async (key, value) => {
+          if (key === 'ollama.endpoint') {
+            const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
+            await ollamaConfig.update(
+              'endpoint',
+              String(value),
+              vscode.ConfigurationTarget.Global
+            );
+            return;
+          }
+
+          const config = vscode.workspace.getConfiguration('nopilot');
+          await config.update(key, value, vscode.ConfigurationTarget.Global);
+        },
+        openExternal: async (url) => {
+          await vscode.env.openExternal(vscode.Uri.parse(url));
+        },
+        sendState: () => this.sendStateToWebview(),
+        debugLog: (logMessage) => log(logMessage),
+      });
+    } catch (error) {
+      logError(`SettingsPanel command failed (${message.command})`, error);
+      void vscode.window.showErrorMessage(
+        `NoPilot settings action failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   dispose(): void {

@@ -91,6 +91,7 @@ export type WebviewMessage =
   | { command: 'removeApiKey'; providerId: ProviderId }
   | { command: 'updateModel'; providerId: ProviderId; model: string }
   | { command: 'updateSetting'; key: string; value: unknown }
+  | { command: 'refreshOllama'; endpoint: string }
   | { command: 'openExternal'; url: string };
 
 export interface WebviewState {

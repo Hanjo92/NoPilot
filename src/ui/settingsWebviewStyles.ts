@@ -245,6 +245,17 @@ const SETTINGS_SECTION_STYLE_BLOCK = `.settings-section {
   font-family: inherit;
 }
 
+.ollama-endpoint-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ollama-endpoint-control input[type="text"] {
+  flex: 1 1 280px;
+}
+
 .setting-control select {
   padding: 4px 8px;
   background: var(--vscode-input-background);

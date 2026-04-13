@@ -168,3 +168,18 @@ test('handleSettingsPanelMessage refreshes Ollama after updating its endpoint', 
   assert.equal(provider.refreshCalls, 1);
   assert.equal(calls.sendState, 1);
 });
+
+test('handleSettingsPanelMessage saves the typed endpoint before refreshing Ollama models', async () => {
+  const { provider, calls, actions } = createActions();
+
+  await handleSettingsPanelMessage(
+    { command: 'refreshOllama', endpoint: '10.0.0.5:11434' },
+    actions
+  );
+
+  assert.deepEqual(calls.updateSettings, [
+    { key: 'ollama.endpoint', value: 'http://10.0.0.5:11434' },
+  ]);
+  assert.equal(provider.refreshCalls, 1);
+  assert.equal(calls.sendState, 1);
+});

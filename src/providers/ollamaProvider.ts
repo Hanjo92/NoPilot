@@ -6,6 +6,10 @@ import {
   CommitMessageRequest,
   ProviderInfo,
 } from '../types';
+import {
+  fetchAvailableCompletionModels,
+  readOllamaErrorMessage,
+} from './ollamaModels';
 import { buildCompletionPrompt, buildCommitMessagePrompt } from './prompts';
 
 /**
@@ -39,33 +43,31 @@ export class OllamaProvider implements AIProvider {
 
   async isAvailable(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.endpoint}/api/tags`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(3000),
-      });
+      this._info.availableModels = await fetchAvailableCompletionModels(this.endpoint);
 
-      if (response.ok) {
-        const data = (await response.json()) as { models?: Array<{ name: string }> };
-        this._info.availableModels = (data.models || []).map((m) => m.name);
-        this._info.status = 'ready';
-
-        // Set current model to first available if not configured
-        if (
-          !this._info.currentModel ||
-          !this._info.availableModels.includes(this._info.currentModel)
-        ) {
-          this._info.currentModel =
-            this._info.availableModels.find((m) => m.includes('codellama')) ||
-            this._info.availableModels[0] ||
-            'codellama';
-        }
-
-        return true;
+      if (this._info.availableModels.length === 0) {
+        this._info.status = 'unavailable';
+        this._info.currentModel = '';
+        return false;
       }
-      this._info.status = 'unavailable';
-      return false;
+
+      this._info.status = 'ready';
+
+      // Set current model to first available if not configured
+      if (
+        !this._info.currentModel ||
+        !this._info.availableModels.includes(this._info.currentModel)
+      ) {
+        this._info.currentModel =
+          this._info.availableModels.find((m) => m.includes('coder')) ||
+          this._info.availableModels.find((m) => m.includes('codellama')) ||
+          this._info.availableModels[0];
+      }
+
+      return true;
     } catch {
       this._info.status = 'unavailable';
+      this._info.availableModels = [];
       return false;
     }
   }
@@ -86,6 +88,11 @@ export class OllamaProvider implements AIProvider {
     token: vscode.CancellationToken
   ): Promise<CompletionResponse> {
     const prompt = buildCompletionPrompt(request);
+    const model = this._info.currentModel;
+
+    if (!model) {
+      throw new Error('Ollama error: no completion-capable model is available');
+    }
 
     const abortController = new AbortController();
     const disposable = token.onCancellationRequested(() => abortController.abort());
@@ -95,7 +102,7 @@ export class OllamaProvider implements AIProvider {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: this._info.currentModel,
+          model,
           prompt,
           stream: false,
           options: {
@@ -107,7 +114,7 @@ export class OllamaProvider implements AIProvider {
       });
 
       if (!response.ok) {
-        throw new Error(`Ollama error: ${response.statusText}`);
+        throw new Error(`Ollama error: ${await readOllamaErrorMessage(response)}`);
       }
 
       const data = (await response.json()) as { response: string };
@@ -122,6 +129,11 @@ export class OllamaProvider implements AIProvider {
     token: vscode.CancellationToken
   ): Promise<string> {
     const prompt = buildCommitMessagePrompt(request);
+    const model = this._info.currentModel;
+
+    if (!model) {
+      throw new Error('Ollama error: no completion-capable model is available');
+    }
 
     const abortController = new AbortController();
     const disposable = token.onCancellationRequested(() => abortController.abort());
@@ -131,7 +143,7 @@ export class OllamaProvider implements AIProvider {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: this._info.currentModel,
+          model,
           prompt,
           stream: false,
           options: {
@@ -143,7 +155,7 @@ export class OllamaProvider implements AIProvider {
       });
 
       if (!response.ok) {
-        throw new Error(`Ollama error: ${response.statusText}`);
+        throw new Error(`Ollama error: ${await readOllamaErrorMessage(response)}`);
       }
 
       const data = (await response.json()) as { response: string };

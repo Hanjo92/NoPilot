@@ -1,4 +1,5 @@
 import type { AIProvider, WebviewMessage } from '../types';
+import { normalizeOllamaEndpoint } from '../providers/ollamaModels';
 import {
   removeProviderApiKey,
   promptAndSaveProviderApiKey,
@@ -15,6 +16,7 @@ export interface SettingsPanelActions {
   updateSetting: (key: string, value: unknown) => Promise<void>;
   openExternal: (url: string) => Promise<void>;
   sendState: () => Promise<void>;
+  debugLog?: (message: string) => void;
 }
 
 export async function handleSettingsPanelMessage(
@@ -59,12 +61,32 @@ export async function handleSettingsPanelMessage(
       return;
 
     case 'updateSetting':
-      await actions.updateSetting(message.key, message.value);
+      if (message.key === 'ollama.endpoint') {
+        actions.debugLog?.(
+          `SettingsPanel updateSetting requested | ollama.endpoint=${String(message.value ?? '')}`
+        );
+      }
+      await actions.updateSetting(
+        message.key,
+        message.key === 'ollama.endpoint'
+          ? normalizeOllamaEndpoint(String(message.value ?? ''))
+          : message.value
+      );
       if (message.key === 'ollama.endpoint') {
         await refreshProviderClient(actions.getProvider('ollama'));
       }
       await actions.sendState();
       return;
+
+    case 'refreshOllama': {
+      const endpoint = normalizeOllamaEndpoint(message.endpoint);
+      actions.debugLog?.(`SettingsPanel refreshOllama requested | endpoint=${endpoint}`);
+      await actions.updateSetting('ollama.endpoint', endpoint);
+      await refreshProviderClient(actions.getProvider('ollama'));
+      actions.debugLog?.(`SettingsPanel refreshOllama completed | endpoint=${endpoint}`);
+      await actions.sendState();
+      return;
+    }
 
     case 'openExternal':
       await actions.openExternal(message.url);
