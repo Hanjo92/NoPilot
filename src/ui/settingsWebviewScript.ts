@@ -113,6 +113,12 @@ const COMMIT_FORMAT_OPTIONS = [
   { value: 'simple', label: 'Simple' },
 ];
 
+const INLINE_QUALITY_PROFILE_OPTIONS = [
+  { value: 'fast', label: 'Fast' },
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'rich', label: 'Rich' },
+];
+
 const INLINE_SETTING_DEFINITIONS = [
   {
     label: 'Enabled',
@@ -120,6 +126,14 @@ const INLINE_SETTING_DEFINITIONS = [
     type: 'toggle',
     key: 'inline.enabled',
     valueKey: 'inlineEnabled',
+  },
+  {
+    label: 'Quality Profile',
+    description: 'Choose between lower latency, balanced defaults, or richer context for automatic suggestions',
+    type: 'select',
+    key: 'inline.qualityProfile',
+    valueKey: 'qualityProfile',
+    options: INLINE_QUALITY_PROFILE_OPTIONS,
   },
   {
     label: 'Pause for Copilot',
@@ -162,6 +176,10 @@ function getInlineSettingControl(definition, settings) {
 
   if (definition.type === 'toggle') {
     return toggleSwitch(definition.key, value);
+  }
+
+  if (definition.type === 'select') {
+    return selectInput(definition.key, value, definition.options);
   }
 
   return numberInput(definition.key, value, definition.min, definition.max);

@@ -34,6 +34,10 @@ NoPilot is a powerful, customizable alternative to GitHub Copilot. It brings hig
 You can customize NoPilot's behavior fully via **VS Code Settings > Extensions > NoPilot**:
 
 * `nopilot.inline.enabled`: Turn ghost text auto-completions on or off.
+* `nopilot.inline.qualityProfile`: Pick how aggressive automatic inline suggestions should be.
+* `fast`: Small context windows, lower token budgets, and more conservative auto-triggering for lower latency.
+* `balanced`: Default mode with the current speed/quality tradeoff.
+* `rich`: Larger context windows, higher token budgets, and richer automatic suggestions, including indented blank lines.
 * `nopilot.inline.debounceMs`: Milliseconds to wait before calling the AI after typing (default `500`).
 * `nopilot.provider`: Default fallback provider.
 

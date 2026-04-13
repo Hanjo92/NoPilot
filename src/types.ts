@@ -43,6 +43,8 @@ export interface CommitMessageRequest {
 
 // ─── Provider ───
 
+export type InlineQualityProfile = 'fast' | 'balanced' | 'rich';
+
 export type ProviderId = 'vscode-lm' | 'anthropic' | 'openai' | 'gemini' | 'ollama';
 
 export type ProviderStatus = 'ready' | 'needs-key' | 'unavailable';
@@ -101,6 +103,7 @@ export interface WebviewState {
   activeProviderId: ProviderId;
   settings: {
     inlineEnabled: boolean;
+    qualityProfile: InlineQualityProfile;
     pauseWhenCopilotActive: boolean;
     debounceMs: number;
     maxPrefixLines: number;

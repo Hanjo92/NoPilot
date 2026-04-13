@@ -1,3 +1,5 @@
+import type { InlineQualityProfile } from '../types';
+
 export function stripMarkdownCodeFences(text: string): string {
   let cleaned = text;
   const fenceMatch = cleaned.match(/^```[\w]*\n([\s\S]*?)\n?```\s*$/);
@@ -25,14 +27,69 @@ export interface InlineRequestPolicy {
 
 interface InlineRequestPolicyInput {
   isAutomaticTrigger: boolean;
+  qualityProfile?: InlineQualityProfile;
   lineText: string;
   cursorCharacter: number;
 }
 
-const AUTOMATIC_INLINE_MAX_TOKENS = 96;
 const EXPLICIT_INLINE_MAX_TOKENS = 256;
-const AUTOMATIC_INLINE_MAX_PREFIX_LINES = 20;
-const AUTOMATIC_INLINE_MAX_SUFFIX_LINES = 8;
+
+interface AutomaticInlineProfile {
+  includeAdditionalContext: boolean;
+  maxTokens: number;
+  maxPrefixLines: number;
+  maxSuffixLines: number;
+  allowIndentedBlankLine: boolean;
+  maxBlankLineIndent: number;
+}
+
+const AUTOMATIC_INLINE_PROFILES: Record<InlineQualityProfile, AutomaticInlineProfile> = {
+  fast: {
+    includeAdditionalContext: false,
+    maxTokens: 64,
+    maxPrefixLines: 12,
+    maxSuffixLines: 4,
+    allowIndentedBlankLine: false,
+    maxBlankLineIndent: 8,
+  },
+  balanced: {
+    includeAdditionalContext: false,
+    maxTokens: 96,
+    maxPrefixLines: 20,
+    maxSuffixLines: 8,
+    allowIndentedBlankLine: false,
+    maxBlankLineIndent: 20,
+  },
+  rich: {
+    includeAdditionalContext: true,
+    maxTokens: 192,
+    maxPrefixLines: 40,
+    maxSuffixLines: 16,
+    allowIndentedBlankLine: true,
+    maxBlankLineIndent: 12,
+  },
+};
+
+function normalizeInlineQualityProfile(
+  qualityProfile: InlineQualityProfile | undefined
+): InlineQualityProfile {
+  return qualityProfile === 'fast' || qualityProfile === 'rich'
+    ? qualityProfile
+    : 'balanced';
+}
+
+function buildAutomaticInlinePolicy(
+  profile: AutomaticInlineProfile,
+  skip: boolean
+): InlineRequestPolicy {
+  return {
+    skip,
+    includeAdditionalContext: profile.includeAdditionalContext,
+    maxTokens: profile.maxTokens,
+    maxPrefixLines: profile.maxPrefixLines,
+    maxSuffixLines: profile.maxSuffixLines,
+  };
+}
 
 export function getInlineRequestPolicy(
   input: InlineRequestPolicyInput
@@ -47,60 +104,42 @@ export function getInlineRequestPolicy(
     };
   }
 
+  const profile = AUTOMATIC_INLINE_PROFILES[
+    normalizeInlineQualityProfile(input.qualityProfile)
+  ];
   const leftStr = input.lineText.substring(0, input.cursorCharacter);
   const rightStr = input.lineText.substring(input.cursorCharacter);
 
   if (rightStr.length > 0 && /^[a-zA-Z0-9_]/.test(rightStr)) {
-    return {
-      skip: true,
-      includeAdditionalContext: false,
-      maxTokens: AUTOMATIC_INLINE_MAX_TOKENS,
-      maxPrefixLines: AUTOMATIC_INLINE_MAX_PREFIX_LINES,
-      maxSuffixLines: AUTOMATIC_INLINE_MAX_SUFFIX_LINES,
-    };
+    return buildAutomaticInlinePolicy(profile, true);
   }
 
   if (leftStr.trim().length > 0 && /[ \t]{2,}$/.test(leftStr)) {
-    return {
-      skip: true,
-      includeAdditionalContext: false,
-      maxTokens: AUTOMATIC_INLINE_MAX_TOKENS,
-      maxPrefixLines: AUTOMATIC_INLINE_MAX_PREFIX_LINES,
-      maxSuffixLines: AUTOMATIC_INLINE_MAX_SUFFIX_LINES,
-    };
+    return buildAutomaticInlinePolicy(profile, true);
   }
 
   if (input.lineText.trim().length === 0) {
-    return {
-      skip: true,
-      includeAdditionalContext: false,
-      maxTokens: AUTOMATIC_INLINE_MAX_TOKENS,
-      maxPrefixLines: AUTOMATIC_INLINE_MAX_PREFIX_LINES,
-      maxSuffixLines: AUTOMATIC_INLINE_MAX_SUFFIX_LINES,
-    };
+    const allowIndentedBlankLine =
+      profile.allowIndentedBlankLine &&
+      leftStr.length > 0 &&
+      leftStr.length <= profile.maxBlankLineIndent;
+
+    return buildAutomaticInlinePolicy(profile, !allowIndentedBlankLine);
   }
 
-  if (leftStr.trim().length === 0 && leftStr.length > 20) {
-    return {
-      skip: true,
-      includeAdditionalContext: false,
-      maxTokens: AUTOMATIC_INLINE_MAX_TOKENS,
-      maxPrefixLines: AUTOMATIC_INLINE_MAX_PREFIX_LINES,
-      maxSuffixLines: AUTOMATIC_INLINE_MAX_SUFFIX_LINES,
-    };
+  if (leftStr.trim().length === 0 && leftStr.length > profile.maxBlankLineIndent) {
+    return buildAutomaticInlinePolicy(profile, true);
   }
 
-  return {
-    skip: false,
-    includeAdditionalContext: false,
-    maxTokens: AUTOMATIC_INLINE_MAX_TOKENS,
-    maxPrefixLines: AUTOMATIC_INLINE_MAX_PREFIX_LINES,
-    maxSuffixLines: AUTOMATIC_INLINE_MAX_SUFFIX_LINES,
-  };
+  return buildAutomaticInlinePolicy(profile, false);
 }
 
-export function buildInlineCacheScope(providerId: string, model: string): string {
-  return `${providerId}::${model || 'auto'}`;
+export function buildInlineCacheScope(
+  providerId: string,
+  model: string,
+  qualityProfile: InlineQualityProfile
+): string {
+  return `${providerId}::${model || 'auto'}::${normalizeInlineQualityProfile(qualityProfile)}`;
 }
 
 export function extractReferencedWords(prefix: string): string[] {
