@@ -40,6 +40,7 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
 
   assert.match(body, /id="providerGrid"/);
   assert.match(body, /id="inlineSettings"/);
+  assert.match(body, /id="ollamaSettings"/);
   assert.match(body, /id="commitSettings"/);
   assert.match(body, /NoPilot v0\.1\.0/);
   assert.match(body, /best-effort/);
@@ -61,6 +62,8 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(script, /function getInlineSettingsMarkup/);
   assert.match(script, /const COMMIT_LANGUAGE_OPTIONS = \[/);
   assert.match(script, /const COMMIT_FORMAT_OPTIONS = \[/);
+  assert.match(script, /ollama\.endpoint/);
+  assert.match(script, /function getOllamaSettingsMarkup/);
   assert.match(script, /function getCommitSettingsMarkup/);
   assert.match(script, /function updateSetting/);
 });

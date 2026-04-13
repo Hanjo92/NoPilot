@@ -102,6 +102,7 @@ export interface WebviewState {
     debounceMs: number;
     maxPrefixLines: number;
     maxSuffixLines: number;
+    ollamaEndpoint: string;
     commitLanguage: string;
     commitFormat: string;
   };

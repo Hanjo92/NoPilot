@@ -2,6 +2,7 @@ import type { AIProvider, WebviewMessage } from '../types';
 import {
   removeProviderApiKey,
   promptAndSaveProviderApiKey,
+  refreshProviderClient,
 } from '../providers/providerCredentials';
 
 export interface SettingsPanelActions {
@@ -59,6 +60,9 @@ export async function handleSettingsPanelMessage(
 
     case 'updateSetting':
       await actions.updateSetting(message.key, message.value);
+      if (message.key === 'ollama.endpoint') {
+        await refreshProviderClient(actions.getProvider('ollama'));
+      }
       await actions.sendState();
       return;
 

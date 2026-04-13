@@ -14,6 +14,7 @@ vscode.postMessage({ command: 'requestState' });
 function render(state) {
   renderProviders(state.providers, state.activeProviderId);
   renderInlineSettings(state.settings);
+  renderOllamaSettings(state.settings);
   renderCommitSettings(state.settings);
 }`;
 
@@ -183,9 +184,24 @@ function getCommitSettingsMarkup(settings) {
   ]);
 }
 
+function getOllamaSettingsMarkup(settings) {
+  return renderSettingRows([
+    {
+      label: 'Endpoint',
+      description: 'HTTP endpoint for your local or remote Ollama server',
+      control: textInput('ollama.endpoint', settings.ollamaEndpoint, 'http://localhost:11434'),
+    },
+  ]);
+}
+
 function renderInlineSettings(settings) {
   const container = document.getElementById('inlineSettings');
   container.innerHTML = getInlineSettingsMarkup(settings);
+}
+
+function renderOllamaSettings(settings) {
+  const container = document.getElementById('ollamaSettings');
+  container.innerHTML = getOllamaSettingsMarkup(settings);
 }
 
 function renderCommitSettings(settings) {
@@ -217,6 +233,11 @@ function toggleSwitch(key, checked) {
 function numberInput(key, value, min, max) {
   return '<input type="number" value="' + value + '" min="' + min + '" max="' + max + '"'
     + ' onchange="updateSetting(\\'' + key + '\\', parseInt(this.value))">';
+}
+
+function textInput(key, value, placeholder) {
+  return '<input type="text" value="' + value + '" placeholder="' + placeholder + '"'
+    + ' onchange="updateSetting(\\'' + key + '\\', this.value.trim())">';
 }
 
 function selectInput(key, value, options) {

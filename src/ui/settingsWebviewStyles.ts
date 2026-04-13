@@ -234,6 +234,17 @@ const SETTINGS_SECTION_STYLE_BLOCK = `.settings-section {
   text-align: center;
 }
 
+.setting-control input[type="text"] {
+  width: 280px;
+  max-width: 100%;
+  padding: 4px 8px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, var(--card-border));
+  border-radius: 4px;
+  font-family: inherit;
+}
+
 .setting-control select {
   padding: 4px 8px;
   background: var(--vscode-input-background);

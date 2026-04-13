@@ -95,6 +95,7 @@ export class SettingsPanel {
         debounceMs: config.get('inline.debounceMs', 300),
         maxPrefixLines: config.get('inline.maxPrefixLines', 50),
         maxSuffixLines: config.get('inline.maxSuffixLines', 20),
+        ollamaEndpoint: config.get('ollama.endpoint', 'http://localhost:11434'),
         commitLanguage: config.get('commitMessage.language', 'en'),
         commitFormat: config.get('commitMessage.format', 'conventional'),
       },

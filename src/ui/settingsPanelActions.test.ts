@@ -153,3 +153,18 @@ test('handleSettingsPanelMessage updates settings and forwards external links', 
   assert.deepEqual(calls.openExternal, ['https://example.com']);
   assert.equal(calls.sendState, 1);
 });
+
+test('handleSettingsPanelMessage refreshes Ollama after updating its endpoint', async () => {
+  const { provider, calls, actions } = createActions();
+
+  await handleSettingsPanelMessage(
+    { command: 'updateSetting', key: 'ollama.endpoint', value: 'http://127.0.0.1:11434' },
+    actions
+  );
+
+  assert.deepEqual(calls.updateSettings, [
+    { key: 'ollama.endpoint', value: 'http://127.0.0.1:11434' },
+  ]);
+  assert.equal(provider.refreshCalls, 1);
+  assert.equal(calls.sendState, 1);
+});

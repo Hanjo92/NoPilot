@@ -74,6 +74,13 @@ export class OllamaProvider implements AIProvider {
     this._info.currentModel = model;
   }
 
+  async refreshClient(): Promise<void> {
+    const config = vscode.workspace.getConfiguration('nopilot.ollama');
+    this.endpoint = config.get('endpoint', 'http://localhost:11434');
+    this._info.currentModel = config.get('model', this._info.currentModel || 'codellama');
+    await this.isAvailable();
+  }
+
   async complete(
     request: CompletionRequest,
     token: vscode.CancellationToken

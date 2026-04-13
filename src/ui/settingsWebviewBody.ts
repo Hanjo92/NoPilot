@@ -14,6 +14,11 @@ const INLINE_SECTION_MARKUP_BLOCK = `<h2>⚙ Inline Completion</h2>
   GitHub Copilot overlap detection is best-effort. NoPilot can pause automatic inline suggestions when Copilot is active for this language, but it cannot reliably detect Copilot quota exhaustion or sign-in expiry.
 </div>`;
 
+const OLLAMA_SECTION_MARKUP_BLOCK = `<h2>🦙 Ollama</h2>
+<div class="settings-section" id="ollamaSettings">
+  <!-- Dynamically populated -->
+</div>`;
+
 const COMMIT_SECTION_MARKUP_BLOCK = `<h2>💬 Commit Messages</h2>
 <div class="settings-section" id="commitSettings">
   <!-- Dynamically populated -->
@@ -27,6 +32,7 @@ const BODY_BLOCKS = [
   HEADER_MARKUP_BLOCK,
   PROVIDER_SECTION_MARKUP_BLOCK,
   INLINE_SECTION_MARKUP_BLOCK,
+  OLLAMA_SECTION_MARKUP_BLOCK,
   COMMIT_SECTION_MARKUP_BLOCK,
   FOOTER_MARKUP_BLOCK,
 ];
