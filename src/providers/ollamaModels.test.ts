@@ -194,3 +194,18 @@ test('readOllamaErrorMessage prefers the API error field', async () => {
     'model "nomic-embed-text:latest" does not support generate'
   );
 });
+
+test('buildOllamaGenerateOptions forwards stop sequences to runtime options', async () => {
+  const ollamaModels = await import('./ollamaModels');
+  const options = (ollamaModels as any).buildOllamaGenerateOptions({
+    maxTokens: 96,
+    temperature: 0.2,
+    stopSequences: ['\n'],
+  });
+
+  assert.deepEqual(options, {
+    num_predict: 96,
+    temperature: 0.2,
+    stop: ['\n'],
+  });
+});

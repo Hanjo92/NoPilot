@@ -3,6 +3,8 @@ import * as vscode from 'vscode';
 // ─── Completion ───
 
 export interface CompletionRequest {
+  /** Completion flow type */
+  mode?: 'automatic' | 'explicit' | 'chat';
   /** Code before the cursor */
   prefix: string;
   /** Code after the cursor */

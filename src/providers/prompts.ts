@@ -33,6 +33,20 @@ RULES:
 `;
   }
 
+  if (request.mode === 'automatic') {
+    return `Complete the code at <CURSOR>.
+${contextBlock}
+Language: ${request.language}
+File: ${request.filename}
+
+<CONTEXT_BEFORE>${request.prefix}</CONTEXT_BEFORE><CURSOR><CONTEXT_AFTER>${request.suffix}</CONTEXT_AFTER>
+
+Return only the code to insert.
+Prefer the shortest correct completion.
+Do not repeat surrounding text.
+Do not use markdown or explanations.`;
+  }
+
   return `You are a strict code completion Assistant. Your task is to provide ONLY the code that belongs at the <CURSOR> position.
 ${contextBlock}
 File: ${request.filename} (${request.language})

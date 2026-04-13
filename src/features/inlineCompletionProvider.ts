@@ -3,10 +3,13 @@ import { ProviderManager } from '../providers/providerManager';
 import { CompletionRequest } from '../types';
 import { log, logError } from '../utils/logger';
 import {
+  buildInlineCacheScope,
   extractReferencedWords,
+  getInlineRequestPolicy,
   getInlineStopSequences,
   sliceLines,
   stripMarkdownCodeFences,
+  trimSingleLineCompletion,
 } from './inlineText';
 import {
   COPILOT_EXTENSION_ID,
@@ -69,33 +72,40 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       return undefined;
     }
 
-    // Suppress automatic completions in unhelpful contexts to save API calls
-    if (context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic) {
-      const line = document.lineAt(position.line).text;
-      const leftStr = line.substring(0, position.character);
-      const rightStr = line.substring(position.character);
+    const currentLine = document.lineAt(position.line).text;
+    const requestPolicy = getInlineRequestPolicy({
+      isAutomaticTrigger:
+        context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic,
+      lineText: currentLine,
+      cursorCharacter: position.character,
+    });
+    const activeProvider = this.providerManager.getActiveProvider();
+    const cacheScope = buildInlineCacheScope(
+      this.providerManager.getActiveProviderId(),
+      activeProvider.info.currentModel
+    );
 
-      // 1. Cursor is in the middle of a word
-      if (rightStr.length > 0 && /^[a-zA-Z0-9_]/.test(rightStr)) {
-        return undefined;
-      }
-
-      // 2. Meaningless spaces/tabs AFTER text on the same line (formatting/alignment)
-      // e.g. "int x =      |"
-      if (leftStr.trim().length > 0 && /[ \t]{2,}$/.test(leftStr)) {
-        return undefined;
-      }
-
-      // 3. User is mashing Tab/Space on an empty line (excessive indentation)
-      if (leftStr.trim().length === 0 && leftStr.length > 20) {
-        return undefined;
-      }
+    if (requestPolicy.skip) {
+      return undefined;
     }
 
+    const cachePrefixLines = Math.min(this.maxPrefixLines, requestPolicy.maxPrefixLines ?? this.maxPrefixLines);
+    const cacheSuffixLines = Math.min(this.maxSuffixLines, requestPolicy.maxSuffixLines ?? this.maxSuffixLines);
+
     // Try to serve from cache first (0ms latency, bypass debounce)
-    const prefixRange = new vscode.Range(Math.max(0, position.line - 10), 0, position.line, position.character);
-    const suffixRange = new vscode.Range(position.line, position.character, Math.min(document.lineCount - 1, position.line + 10), 0);
-    const cacheKey = `${document.uri.toString()}|${document.getText(prefixRange)}|${document.getText(suffixRange)}`;
+    const prefixRange = new vscode.Range(
+      Math.max(0, position.line - cachePrefixLines),
+      0,
+      position.line,
+      position.character
+    );
+    const suffixRange = new vscode.Range(
+      position.line,
+      position.character,
+      Math.min(document.lineCount - 1, position.line + cacheSuffixLines),
+      0
+    );
+    const cacheKey = `${cacheScope}|${document.uri.toString()}|${document.getText(prefixRange)}|${document.getText(suffixRange)}`;
 
     if (this.cache.has(cacheKey)) {
       const cachedText = this.cache.get(cacheKey)!;
@@ -117,25 +127,25 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       return undefined;
     }
 
-    // Stop excessive triggering on empty lines unless actively invoked
-    const currentLine = document.lineAt(position.line).text;
-    if (context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic && 
-        currentLine.trim().length === 0 && position.character === 0) {
-      // It's a completely empty line and triggered automatically.
-      // E.g. right after pressing Enter. We only proceed if we let debounce settle well.
-    }
-
-    const request = await this.buildRequest(document, position);
-    log(`Inline request #${requestId}: ${request.filename} (${request.language}), line ${position.line + 1}, prefix ${request.prefix.length} chars`);
+    const buildStart = Date.now();
+    const request = await this.buildRequest(document, position, requestPolicy, context.triggerKind);
+    const buildDurationMs = Date.now() - buildStart;
+    log(
+      `Inline request #${requestId}: ${request.filename} (${request.language}), line ${position.line + 1}, prefix ${request.prefix.length} chars, build ${buildDurationMs}ms`
+    );
 
     try {
       // Use VS Code's own cancellation token directly
       // Don't add our own cancellation — let the API call finish
+      const providerStart = Date.now();
       const response = await this.providerManager.complete(request, token);
+      const providerDurationMs = Date.now() - providerStart;
 
       // Check AFTER the API call if this request is still current
       if (requestId !== this.requestCounter) {
-        log(`Inline #${requestId}: response arrived but newer request exists, discarding`);
+        log(
+          `Inline #${requestId}: response arrived after ${providerDurationMs}ms but newer request exists, discarding`
+        );
         return undefined;
       }
 
@@ -149,14 +159,21 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
         return undefined;
       }
 
-      const cleanedText = this.cleanResponseText(response.text, request.prefix, request.suffix);
+      const cleanedText = this.cleanResponseText(
+        response.text,
+        request.prefix,
+        request.suffix,
+        request.stopSequences
+      );
 
       if (!cleanedText) {
         log(`Inline #${requestId}: empty after cleanup`);
         return undefined;
       }
 
-      log(`Inline #${requestId}: ✅ ${cleanedText.length} chars`);
+      log(
+        `Inline #${requestId}: ✅ ${cleanedText.length} chars | provider ${providerDurationMs}ms | mode ${request.mode || 'explicit'}`
+      );
 
       // Save to cache
       this.cache.set(cacheKey, cleanedText);
@@ -187,13 +204,23 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
 
   private async buildRequest(
     document: vscode.TextDocument,
-    position: vscode.Position
+    position: vscode.Position,
+    requestPolicy: ReturnType<typeof getInlineRequestPolicy>,
+    triggerKind: vscode.InlineCompletionTriggerKind
   ): Promise<CompletionRequest> {
-    const prefixStartLine = Math.max(0, position.line - this.maxPrefixLines);
+    const prefixLineBudget = Math.min(
+      this.maxPrefixLines,
+      requestPolicy.maxPrefixLines ?? this.maxPrefixLines
+    );
+    const suffixLineBudget = Math.min(
+      this.maxSuffixLines,
+      requestPolicy.maxSuffixLines ?? this.maxSuffixLines
+    );
+    const prefixStartLine = Math.max(0, position.line - prefixLineBudget);
     const prefixRange = new vscode.Range(prefixStartLine, 0, position.line, position.character);
     const prefix = document.getText(prefixRange);
 
-    const suffixEndLine = Math.min(document.lineCount - 1, position.line + this.maxSuffixLines);
+    const suffixEndLine = Math.min(document.lineCount - 1, position.line + suffixLineBudget);
     const suffixRange = new vscode.Range(
       position.line, position.character,
       suffixEndLine, document.lineAt(suffixEndLine).text.length
@@ -202,78 +229,80 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
 
     let additionalContext = '';
 
-    // 1. Fetch beginning of the current file if prefix doesn't cover it (useful for imports, class variables)
-    if (prefixStartLine > 0) {
-      const topLines = Math.min(prefixStartLine, 50); // Get up to 50 lines of the top of the file
-      additionalContext += `// Top of current file:\n${document.getText(new vscode.Range(0, 0, topLines, 0))}\n\n`;
-    }
+    if (requestPolicy.includeAdditionalContext) {
+      // 1. Fetch beginning of the current file if prefix doesn't cover it (useful for imports, class variables)
+      if (prefixStartLine > 0) {
+        const topLines = Math.min(prefixStartLine, 50); // Get up to 50 lines of the top of the file
+        additionalContext += `// Top of current file:\n${document.getText(new vscode.Range(0, 0, topLines, 0))}\n\n`;
+      }
 
-    // 2. Fetch snippets from other open text documents (same language) to establish cross-file context
-    const openDocs = vscode.workspace.textDocuments.filter(
-      (doc) => doc.uri.toString() !== document.uri.toString() && doc.languageId === document.languageId
-    );
+      // 2. Fetch snippets from other open text documents (same language) to establish cross-file context
+      const openDocs = vscode.workspace.textDocuments.filter(
+        (doc) => doc.uri.toString() !== document.uri.toString() && doc.languageId === document.languageId
+      );
 
-    // Get up to 3 recently active related files, taking the first 1500 chars of each
-    for (const doc of openDocs.slice(0, 3)) {
-       const text = doc.getText();
-       const snippet = text.length > 1500 ? text.substring(0, 1500) + '\n... (truncated)' : text;
-       const filename = doc.fileName.split(/[/\\]/).pop();
-       additionalContext += `// Open file: ${filename}\n${snippet}\n\n`;
-    }
+      // Get up to 3 recently active related files, taking the first 1500 chars of each
+      for (const doc of openDocs.slice(0, 3)) {
+         const text = doc.getText();
+         const snippet = text.length > 1500 ? text.substring(0, 1500) + '\n... (truncated)' : text;
+         const filename = doc.fileName.split(/[/\\]/).pop();
+         additionalContext += `// Open file: ${filename}\n${snippet}\n\n`;
+      }
 
-    // 3. Heuristic: Semantic Class Reference Fetching
-    // Extract recent PascalCase words that look like class/struct names from the prefix
-    // Attempt to find files matching these words in the workspace (up to 4 words)
-    const ext = document.fileName.substring(document.fileName.lastIndexOf('.'));
-    const searchWords = extractReferencedWords(prefix).reverse().slice(0, 4);
-    
-    if (searchWords.length > 0) {
-      const searchPromises = searchWords.map(async (word) => {
-        try {
-          // 1. Try LSP Workspace Symbol Provider (resolves interfaces, structs, classes accurately)
-          const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
-            'vscode.executeWorkspaceSymbolProvider',
-            word
-          );
-
-          if (symbols && symbols.length > 0) {
-            // Find an exact match for Class, Interface, or Struct
-            const targetSymbol = symbols.find(s => 
-              s.name === word && 
-              (s.kind === vscode.SymbolKind.Class || s.kind === vscode.SymbolKind.Interface || s.kind === vscode.SymbolKind.Struct)
+      // 3. Heuristic: Semantic Class Reference Fetching
+      // Extract recent PascalCase words that look like class/struct names from the prefix
+      // Attempt to find files matching these words in the workspace (up to 4 words)
+      const ext = document.fileName.substring(document.fileName.lastIndexOf('.'));
+      const searchWords = extractReferencedWords(prefix).reverse().slice(0, 4);
+      
+      if (searchWords.length > 0) {
+        const searchPromises = searchWords.map(async (word) => {
+          try {
+            // 1. Try LSP Workspace Symbol Provider (resolves interfaces, structs, classes accurately)
+            const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+              'vscode.executeWorkspaceSymbolProvider',
+              word
             );
 
-            if (targetSymbol && targetSymbol.location.uri.toString() !== document.uri.toString()) {
-              const fileData = await vscode.workspace.fs.readFile(targetSymbol.location.uri);
-              const text = Buffer.from(fileData).toString('utf8');
-              const startLine = Math.max(0, targetSymbol.location.range.start.line - 2);
-              const snippet = sliceLines(text, startLine, 50);
-              const filename = targetSymbol.location.uri.path.split(/[/\\]/).pop();
-              return `// Referenced Symbol: ${word} (from ${filename})\n${snippet}\n\n`;
+            if (symbols && symbols.length > 0) {
+              // Find an exact match for Class, Interface, or Struct
+              const targetSymbol = symbols.find(s => 
+                s.name === word && 
+                (s.kind === vscode.SymbolKind.Class || s.kind === vscode.SymbolKind.Interface || s.kind === vscode.SymbolKind.Struct)
+              );
+
+              if (targetSymbol && targetSymbol.location.uri.toString() !== document.uri.toString()) {
+                const fileData = await vscode.workspace.fs.readFile(targetSymbol.location.uri);
+                const text = Buffer.from(fileData).toString('utf8');
+                const startLine = Math.max(0, targetSymbol.location.range.start.line - 2);
+                const snippet = sliceLines(text, startLine, 50);
+                const filename = targetSymbol.location.uri.path.split(/[/\\]/).pop();
+                return `// Referenced Symbol: ${word} (from ${filename})\n${snippet}\n\n`;
+              }
             }
-          }
 
-          // 2. Fallback: Find exact file name (e.g. "ShopModel.cs")
-          const uris = await vscode.workspace.findFiles(`**/${word}${ext}`, '**/node_modules/**', 1);
-          if (uris.length > 0 && uris[0].toString() !== document.uri.toString()) {
-            const fileData = await vscode.workspace.fs.readFile(uris[0]);
-            const text = Buffer.from(fileData).toString('utf8');
-            const snippet = sliceLines(text, 0, 50);
-            return `// Referenced Class File: ${word}${ext}\n${snippet}\n\n`;
+            // 2. Fallback: Find exact file name (e.g. "ShopModel.cs")
+            const uris = await vscode.workspace.findFiles(`**/${word}${ext}`, '**/node_modules/**', 1);
+            if (uris.length > 0 && uris[0].toString() !== document.uri.toString()) {
+              const fileData = await vscode.workspace.fs.readFile(uris[0]);
+              const text = Buffer.from(fileData).toString('utf8');
+              const snippet = sliceLines(text, 0, 50);
+              return `// Referenced Class File: ${word}${ext}\n${snippet}\n\n`;
+            }
+          } catch (_error) {
+            // Ignore read errors
           }
-        } catch (_error) {
-          // Ignore read errors
-        }
-        return '';
-      });
+          return '';
+        });
 
-      // Wait for file searches, but bound the time to avoid slowing down inline completion
-      const results = await Promise.race([
-        Promise.all(searchPromises),
-        new Promise<string[]>((resolve) => setTimeout(() => resolve([]), 200)) // 200ms timeout
-      ]);
-      
-      additionalContext += results.filter(Boolean).join('');
+        // Wait for file searches, but bound the time to avoid slowing down inline completion
+        const results = await Promise.race([
+          Promise.all(searchPromises),
+          new Promise<string[]>((resolve) => setTimeout(() => resolve([]), 200)) // 200ms timeout
+        ]);
+        
+        additionalContext += results.filter(Boolean).join('');
+      }
     }
 
     // Single-line vs Multi-line logic
@@ -281,13 +310,17 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     const stopSequences = getInlineStopSequences(currentLine, position.character);
 
     return {
+      mode:
+        triggerKind === vscode.InlineCompletionTriggerKind.Automatic
+          ? 'automatic'
+          : 'explicit',
       prefix,
       suffix,
       language: document.languageId,
       filename: document.fileName.split(/[/\\]/).pop() || 'unknown',
       additionalContext: additionalContext.trim(),
       stopSequences,
-      maxTokens: 256,
+      maxTokens: requestPolicy.maxTokens,
     };
   }
 
@@ -312,7 +345,12 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     });
   }
 
-  private cleanResponseText(text: string, prefix: string, suffix: string): string {
+  private cleanResponseText(
+    text: string,
+    prefix: string,
+    suffix: string,
+    stopSequences?: string[]
+  ): string {
     let cleaned = stripMarkdownCodeFences(text.trimEnd());
 
     // 1. Remove common overlap with the exact characters before the cursor
@@ -351,6 +389,10 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       if (truncateIdx !== -1) {
          cleaned = cleanedLines.slice(0, truncateIdx).join('\n');
       }
+    }
+
+    if (stopSequences?.includes('\n')) {
+      cleaned = trimSingleLineCompletion(cleaned);
     }
 
     return cleaned;

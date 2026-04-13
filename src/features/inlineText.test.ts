@@ -30,3 +30,70 @@ test('getInlineStopSequences returns a real newline stop token', () => {
 
   assert.deepEqual(stopSequences, ['\n']);
 });
+
+test('getInlineRequestPolicy keeps automatic requests lean', async () => {
+  const inlineText = await import('./inlineText');
+  const policy = (inlineText as any).getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    lineText: 'const value = ',
+    cursorCharacter: 14,
+  });
+
+  assert.deepEqual(policy, {
+    skip: false,
+    includeAdditionalContext: false,
+    maxTokens: 96,
+    maxPrefixLines: 20,
+    maxSuffixLines: 8,
+  });
+});
+
+test('getInlineRequestPolicy skips automatic requests on indent-only lines', async () => {
+  const inlineText = await import('./inlineText');
+  const policy = (inlineText as any).getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    lineText: '    ',
+    cursorCharacter: 4,
+  });
+
+  assert.equal(policy.skip, true);
+});
+
+test('trimSingleLineCompletion keeps only the first line of a noisy completion', async () => {
+  const inlineText = await import('./inlineText');
+  const trimmed = (inlineText as any).trimSingleLineCompletion(
+    'value + 1\nconsole.log(value);\nreturn value;'
+  );
+
+  assert.equal(trimmed, 'value + 1');
+});
+
+test('getInlineRequestPolicy preserves richer context for explicit requests', async () => {
+  const inlineText = await import('./inlineText');
+  const policy = (inlineText as any).getInlineRequestPolicy({
+    isAutomaticTrigger: false,
+    lineText: '',
+    cursorCharacter: 0,
+  });
+
+  assert.deepEqual(policy, {
+    skip: false,
+    includeAdditionalContext: true,
+    maxTokens: 256,
+    maxPrefixLines: undefined,
+    maxSuffixLines: undefined,
+  });
+});
+
+test('buildInlineCacheScope separates provider and model variants', async () => {
+  const inlineText = await import('./inlineText');
+
+  assert.equal(
+    (inlineText as any).buildInlineCacheScope('ollama', 'qwen2.5-coder:7b'),
+    'ollama::qwen2.5-coder:7b'
+  );
+  assert.equal(
+    (inlineText as any).buildInlineCacheScope('openai', ''),
+    'openai::auto'
+  );
+});
