@@ -8,7 +8,8 @@ import {
   ProviderInfo,
 } from '../types';
 import { AuthService } from '../services/authService';
-import { buildCompletionPrompt, buildCommitMessagePrompt } from './prompts';
+import { buildCommitMessagePrompt } from './prompts';
+import { buildInlineCompletionConfig } from './inlineStrategies';
 
 /**
  * Provider for Anthropic Claude API.
@@ -64,7 +65,7 @@ export class AnthropicProvider implements AIProvider {
     token: vscode.CancellationToken
   ): Promise<CompletionResponse> {
     await this.ensureClient();
-    const prompt = buildCompletionPrompt(request);
+    const inlineConfig = buildInlineCompletionConfig(this._info.id, request);
     const abortController = new AbortController();
     const disposable = token.onCancellationRequested(() => abortController.abort());
 
@@ -72,11 +73,11 @@ export class AnthropicProvider implements AIProvider {
       const response = await this.client!.messages.create(
         {
           model: this._info.currentModel,
-          max_tokens: request.maxTokens || 256,
+          max_tokens: inlineConfig.maxTokens,
           temperature: 0.2,
-          stop_sequences: request.stopSequences,
+          stop_sequences: inlineConfig.stopSequences,
           system: 'You are an AI code completion assistant.',
-          messages: [{ role: 'user', content: prompt }],
+          messages: [{ role: 'user', content: inlineConfig.prompt }],
         },
         { signal: abortController.signal }
       );
