@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ProviderManager } from '../providers/providerManager';
-import { CompletionRequest } from '../types';
+import { CompletionRequest, InlineQualityProfile } from '../types';
 import { log, logError } from '../utils/logger';
 import {
   cleanInlineCompletionText,
@@ -25,6 +25,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
   private requestCounter = 0; // Track which request is "current"
   private enabled: boolean;
   private pauseWhenCopilotActive: boolean;
+  private qualityProfile: InlineQualityProfile;
   private debounceMs: number;
   private maxPrefixLines: number;
   private maxSuffixLines: number;
@@ -38,6 +39,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
   constructor(private readonly providerManager: ProviderManager) {
     const config = vscode.workspace.getConfiguration('nopilot');
     this.enabled = config.get('inline.enabled', true);
+    this.qualityProfile = config.get<InlineQualityProfile>('inline.qualityProfile', 'balanced');
     this.pauseWhenCopilotActive = config.get('inline.pauseWhenCopilotActive', true);
     this.debounceMs = config.get('inline.debounceMs', 300);
     this.maxPrefixLines = config.get('inline.maxPrefixLines', 50);
@@ -48,6 +50,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
         if (e.affectsConfiguration('nopilot.inline')) {
           const cfg = vscode.workspace.getConfiguration('nopilot');
           this.enabled = cfg.get('inline.enabled', true);
+          this.qualityProfile = cfg.get<InlineQualityProfile>('inline.qualityProfile', 'balanced');
           this.pauseWhenCopilotActive = cfg.get('inline.pauseWhenCopilotActive', true);
           this.debounceMs = cfg.get('inline.debounceMs', 300);
           this.maxPrefixLines = cfg.get('inline.maxPrefixLines', 50);
@@ -75,13 +78,15 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     const requestPolicy = getInlineRequestPolicy({
       isAutomaticTrigger:
         context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic,
+      qualityProfile: this.qualityProfile,
       lineText: currentLine,
       cursorCharacter: position.character,
     });
     const activeProvider = this.providerManager.getActiveProvider();
     const cacheScope = buildInlineCacheScope(
       this.providerManager.getActiveProviderId(),
-      activeProvider.info.currentModel
+      activeProvider.info.currentModel,
+      this.qualityProfile
     );
 
     if (requestPolicy.skip) {
@@ -171,7 +176,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       }
 
       log(
-        `Inline #${requestId}: ✅ ${cleanedText.length} chars | provider ${providerDurationMs}ms | mode ${request.mode || 'explicit'}`
+        `Inline #${requestId}: ✅ ${cleanedText.length} chars | provider ${providerDurationMs}ms | mode ${request.mode || 'explicit'} | profile ${this.qualityProfile}`
       );
 
       // Save to cache

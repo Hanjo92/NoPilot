@@ -1,4 +1,10 @@
-import type { AIProvider, ProviderId, ProviderInfo, WebviewState } from '../types';
+import type {
+  AIProvider,
+  InlineQualityProfile,
+  ProviderId,
+  ProviderInfo,
+  WebviewState,
+} from '../types';
 import { refreshProviderClient } from '../providers/providerCredentials';
 
 interface SettingsPanelStateSource {
@@ -18,6 +24,7 @@ export async function buildSettingsWebviewState(
     activeProviderId: source.getActiveProviderId(),
     settings: {
       inlineEnabled: source.getSetting('inline.enabled', true),
+      qualityProfile: source.getSetting<InlineQualityProfile>('inline.qualityProfile', 'balanced'),
       pauseWhenCopilotActive: source.getSetting('inline.pauseWhenCopilotActive', true),
       debounceMs: source.getSetting('inline.debounceMs', 300),
       maxPrefixLines: source.getSetting('inline.maxPrefixLines', 50),

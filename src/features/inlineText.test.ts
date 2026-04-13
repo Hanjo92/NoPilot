@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   cleanInlineCompletionText,
   extractReferencedWords,
+  getInlineRequestPolicy,
   getInlineStopSequences,
   sliceLines,
   stripMarkdownCodeFences,
@@ -33,9 +34,9 @@ test('getInlineStopSequences returns a real newline stop token', () => {
 });
 
 test('getInlineRequestPolicy keeps automatic requests lean', async () => {
-  const inlineText = await import('./inlineText');
-  const policy = (inlineText as any).getInlineRequestPolicy({
+  const policy = getInlineRequestPolicy({
     isAutomaticTrigger: true,
+    qualityProfile: 'balanced',
     lineText: 'const value = ',
     cursorCharacter: 14,
   });
@@ -50,14 +51,48 @@ test('getInlineRequestPolicy keeps automatic requests lean', async () => {
 });
 
 test('getInlineRequestPolicy skips automatic requests on indent-only lines', async () => {
-  const inlineText = await import('./inlineText');
-  const policy = (inlineText as any).getInlineRequestPolicy({
+  const policy = getInlineRequestPolicy({
     isAutomaticTrigger: true,
+    qualityProfile: 'balanced',
     lineText: '    ',
     cursorCharacter: 4,
   });
 
   assert.equal(policy.skip, true);
+});
+
+test('getInlineRequestPolicy makes fast profile more conservative', () => {
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'fast',
+    lineText: 'return ',
+    cursorCharacter: 7,
+  });
+
+  assert.deepEqual(policy, {
+    skip: false,
+    includeAdditionalContext: false,
+    maxTokens: 64,
+    maxPrefixLines: 12,
+    maxSuffixLines: 4,
+  });
+});
+
+test('getInlineRequestPolicy lets rich profile complete on indented blank lines', () => {
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'rich',
+    lineText: '    ',
+    cursorCharacter: 4,
+  });
+
+  assert.deepEqual(policy, {
+    skip: false,
+    includeAdditionalContext: true,
+    maxTokens: 192,
+    maxPrefixLines: 40,
+    maxSuffixLines: 16,
+  });
 });
 
 test('trimSingleLineCompletion keeps only the first line of a noisy completion', async () => {
@@ -70,9 +105,9 @@ test('trimSingleLineCompletion keeps only the first line of a noisy completion',
 });
 
 test('getInlineRequestPolicy preserves richer context for explicit requests', async () => {
-  const inlineText = await import('./inlineText');
-  const policy = (inlineText as any).getInlineRequestPolicy({
+  const policy = getInlineRequestPolicy({
     isAutomaticTrigger: false,
+    qualityProfile: 'fast',
     lineText: '',
     cursorCharacter: 0,
   });
@@ -90,12 +125,12 @@ test('buildInlineCacheScope separates provider and model variants', async () => 
   const inlineText = await import('./inlineText');
 
   assert.equal(
-    (inlineText as any).buildInlineCacheScope('ollama', 'qwen2.5-coder:7b'),
-    'ollama::qwen2.5-coder:7b'
+    (inlineText as any).buildInlineCacheScope('ollama', 'qwen2.5-coder:7b', 'fast'),
+    'ollama::qwen2.5-coder:7b::fast'
   );
   assert.equal(
-    (inlineText as any).buildInlineCacheScope('openai', ''),
-    'openai::auto'
+    (inlineText as any).buildInlineCacheScope('openai', '', 'balanced'),
+    'openai::auto::balanced'
   );
 });
 

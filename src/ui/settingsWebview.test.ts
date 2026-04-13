@@ -64,6 +64,11 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(script, /document\.addEventListener\('keydown'/);
   assert.match(script, /function renderInlineSettings/);
   assert.match(script, /const INLINE_SETTING_DEFINITIONS = \[/);
+  assert.match(script, /inline\.qualityProfile/);
+  assert.match(script, /Quality Profile/);
+  assert.match(script, /Fast/);
+  assert.match(script, /Balanced/);
+  assert.match(script, /Rich/);
   assert.match(script, /inline\.pauseWhenCopilotActive/);
   assert.match(script, /function renderSettingRows/);
   assert.match(script, /function getInlineSettingsMarkup/);

@@ -51,6 +51,7 @@ test('buildSettingsWebviewState refreshes Ollama before returning provider info'
     getSetting: <T>(key: string, defaultValue: T): T => {
       const values: Record<string, unknown> = {
         'inline.enabled': true,
+        'inline.qualityProfile': 'rich',
         'inline.pauseWhenCopilotActive': true,
         'inline.debounceMs': 300,
         'inline.maxPrefixLines': 50,
@@ -67,5 +68,6 @@ test('buildSettingsWebviewState refreshes Ollama before returning provider info'
   assert.equal(ollama.refreshCalls, 1);
   assert.equal(state.activeProviderId, 'ollama');
   assert.equal(state.settings.ollamaEndpoint, 'http://127.0.0.1:11434');
+  assert.equal(state.settings.qualityProfile, 'rich');
   assert.deepEqual(state.providers[0].availableModels, ['qwen2.5-coder:7b']);
 });

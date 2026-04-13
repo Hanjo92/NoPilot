@@ -107,6 +107,21 @@
           "default": true,
           "description": "Enable inline code completion"
         },
+        "nopilot.inline.qualityProfile": {
+          "type": "string",
+          "enum": [
+            "fast",
+            "balanced",
+            "rich"
+          ],
+          "enumDescriptions": [
+            "Prefer lower latency and smaller automatic requests.",
+            "Keep the current default balance between speed and suggestion depth.",
+            "Allow richer automatic suggestions with more context and a more eager trigger."
+          ],
+          "default": "balanced",
+          "description": "Quality profile for automatic inline suggestions"
+        },
         "nopilot.inline.pauseWhenCopilotActive": {
           "type": "boolean",
           "default": true,
