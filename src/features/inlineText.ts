@@ -91,6 +91,90 @@ function buildAutomaticInlinePolicy(
   };
 }
 
+interface LineContextAnalysis {
+  insideString: boolean;
+  insideComment: boolean;
+}
+
+function analyzeLineContext(lineText: string, cursorCharacter: number): LineContextAnalysis {
+  const limit = Math.max(0, Math.min(cursorCharacter, lineText.length));
+  let activeQuote: '"' | "'" | '`' | null = null;
+  let escapeNext = false;
+  let insideBlockComment = false;
+
+  for (let i = 0; i < limit; i++) {
+    const char = lineText[i];
+    const nextChar = i + 1 < limit ? lineText[i + 1] : '';
+
+    if (insideBlockComment) {
+      if (char === '*' && nextChar === '/') {
+        insideBlockComment = false;
+        i += 1;
+      }
+      continue;
+    }
+
+    if (activeQuote) {
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === activeQuote) {
+        activeQuote = null;
+      }
+      continue;
+    }
+
+    if (char === '/' && nextChar === '/') {
+      return { insideString: false, insideComment: true };
+    }
+
+    if (char === '/' && nextChar === '*') {
+      insideBlockComment = true;
+      i += 1;
+      continue;
+    }
+
+    if (char === '"' || char === "'" || char === '`') {
+      activeQuote = char;
+    }
+  }
+
+  return {
+    insideString: activeQuote !== null,
+    insideComment: insideBlockComment,
+  };
+}
+
+function isImportStatementPrefix(leftStr: string): boolean {
+  const trimmed = leftStr.trimStart();
+
+  return /^import\b/.test(trimmed) || /^export\s+(?:\*|\{)/.test(trimmed);
+}
+
+function isLowSignalChainingState(leftStr: string): boolean {
+  const trimmed = leftStr.trimEnd();
+
+  if (trimmed.length === 0) {
+    return false;
+  }
+
+  const trailingToken = trimmed.match(/(\S+)$/)?.[1] ?? '';
+
+  return (
+    trailingToken.endsWith('?.') ||
+    trailingToken.endsWith('.') ||
+    trailingToken.endsWith('::') ||
+    /^[()[\]{}.,:;!?]+$/.test(trailingToken)
+  );
+}
+
 export function getInlineRequestPolicy(
   input: InlineRequestPolicyInput
 ): InlineRequestPolicy {
@@ -109,6 +193,19 @@ export function getInlineRequestPolicy(
   ];
   const leftStr = input.lineText.substring(0, input.cursorCharacter);
   const rightStr = input.lineText.substring(input.cursorCharacter);
+  const lineContext = analyzeLineContext(input.lineText, input.cursorCharacter);
+
+  if (lineContext.insideComment || lineContext.insideString) {
+    return buildAutomaticInlinePolicy(profile, true);
+  }
+
+  if (isImportStatementPrefix(leftStr)) {
+    return buildAutomaticInlinePolicy(profile, true);
+  }
+
+  if (isLowSignalChainingState(leftStr)) {
+    return buildAutomaticInlinePolicy(profile, true);
+  }
 
   if (rightStr.length > 0 && /^[a-zA-Z0-9_]/.test(rightStr)) {
     return buildAutomaticInlinePolicy(profile, true);
