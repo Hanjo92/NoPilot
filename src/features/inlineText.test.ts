@@ -61,6 +61,54 @@ test('getInlineRequestPolicy skips automatic requests on indent-only lines', asy
   assert.equal(policy.skip, true);
 });
 
+test('getInlineRequestPolicy skips automatic requests inside line comments', () => {
+  const lineText = 'const value = 1; // explain the result';
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'balanced',
+    lineText,
+    cursorCharacter: lineText.length,
+  });
+
+  assert.equal(policy.skip, true);
+});
+
+test('getInlineRequestPolicy skips automatic requests inside string literals', () => {
+  const lineText = 'const message = "hel';
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'balanced',
+    lineText,
+    cursorCharacter: lineText.length,
+  });
+
+  assert.equal(policy.skip, true);
+});
+
+test('getInlineRequestPolicy skips automatic requests inside import statements', () => {
+  const lineText = 'import { readF';
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'balanced',
+    lineText,
+    cursorCharacter: lineText.length,
+  });
+
+  assert.equal(policy.skip, true);
+});
+
+test('getInlineRequestPolicy skips automatic requests in low-signal chaining states', () => {
+  const lineText = 'user?.';
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'balanced',
+    lineText,
+    cursorCharacter: lineText.length,
+  });
+
+  assert.equal(policy.skip, true);
+});
+
 test('getInlineRequestPolicy makes fast profile more conservative', () => {
   const policy = getInlineRequestPolicy({
     isAutomaticTrigger: true,
@@ -119,6 +167,19 @@ test('getInlineRequestPolicy preserves richer context for explicit requests', as
     maxPrefixLines: undefined,
     maxSuffixLines: undefined,
   });
+});
+
+test('getInlineRequestPolicy keeps explicit requests available in filtered automatic contexts', () => {
+  const lineText = 'import { readF';
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: false,
+    qualityProfile: 'balanced',
+    lineText,
+    cursorCharacter: lineText.length,
+  });
+
+  assert.equal(policy.skip, false);
+  assert.equal(policy.maxTokens, 256);
 });
 
 test('buildInlineCacheScope separates provider and model variants', async () => {
