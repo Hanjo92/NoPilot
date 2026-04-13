@@ -8,7 +8,8 @@ import {
   ProviderInfo,
 } from '../types';
 import { AuthService } from '../services/authService';
-import { buildCompletionPrompt, buildCommitMessagePrompt } from './prompts';
+import { buildCommitMessagePrompt } from './prompts';
+import { buildInlineCompletionConfig } from './inlineStrategies';
 
 /**
  * Provider for OpenAI API (GPT, Codex, etc.)
@@ -71,7 +72,7 @@ export class OpenAIProvider implements AIProvider {
     token: vscode.CancellationToken
   ): Promise<CompletionResponse> {
     await this.ensureClient();
-    const prompt = buildCompletionPrompt(request);
+    const inlineConfig = buildInlineCompletionConfig(this._info.id, request);
     const abortController = new AbortController();
     const disposable = token.onCancellationRequested(() => abortController.abort());
 
@@ -79,10 +80,10 @@ export class OpenAIProvider implements AIProvider {
       const response = await this.client!.chat.completions.create(
         {
           model: this._info.currentModel,
-          max_tokens: request.maxTokens || 512,
+          max_tokens: inlineConfig.maxTokens,
           temperature: 0.2,
-          stop: request.stopSequences,
-          messages: [{ role: 'user', content: prompt }],
+          stop: inlineConfig.stopSequences,
+          messages: [{ role: 'user', content: inlineConfig.prompt }],
         },
         { signal: abortController.signal }
       );

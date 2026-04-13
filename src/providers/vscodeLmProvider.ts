@@ -6,7 +6,8 @@ import {
   CommitMessageRequest,
   ProviderInfo,
 } from '../types';
-import { buildCompletionPrompt, buildCommitMessagePrompt } from './prompts';
+import { buildCommitMessagePrompt } from './prompts';
+import { buildInlineCompletionConfig } from './inlineStrategies';
 
 /** Detailed info about a model discovered via vscode.lm */
 export interface DiscoveredModel {
@@ -138,17 +139,10 @@ export class VscodeLmProvider implements AIProvider {
     const targetModel = this._info.currentModel;
     const model =
       models.find((m) => `${m.vendor}/${m.family}` === targetModel) || models[0];
-
-    let prompt = buildCompletionPrompt(request);
-    
-    // VSCode LM may not easily support passing native stopSequences.
-    // Instead we instruct it in the prompt explicitly:
-    if (request.stopSequences && request.stopSequences.includes('\n')) {
-      prompt += `\n\nCRITICAL DIRECTIVE: The user expects a SINGLE-LINE completion or a partial line completion. You MUST NOT output any newline character. STOP IMMEDIATELY after writing the rest of the current line.`;
-    }
+    const inlineConfig = buildInlineCompletionConfig(this._info.id, request);
 
     const messages = [
-      vscode.LanguageModelChatMessage.User(prompt)
+      vscode.LanguageModelChatMessage.User(inlineConfig.prompt)
     ];
 
     const response = await model.sendRequest(messages, {}, token);

@@ -11,7 +11,8 @@ import {
   fetchAvailableCompletionModels,
   readOllamaErrorMessage,
 } from './ollamaModels';
-import { buildCompletionPrompt, buildCommitMessagePrompt } from './prompts';
+import { buildCommitMessagePrompt } from './prompts';
+import { buildInlineCompletionConfig } from './inlineStrategies';
 
 /**
  * Provider for local Ollama server.
@@ -88,7 +89,7 @@ export class OllamaProvider implements AIProvider {
     request: CompletionRequest,
     token: vscode.CancellationToken
   ): Promise<CompletionResponse> {
-    const prompt = buildCompletionPrompt(request);
+    const inlineConfig = buildInlineCompletionConfig(this._info.id, request);
     const model = this._info.currentModel;
 
     if (!model) {
@@ -104,12 +105,12 @@ export class OllamaProvider implements AIProvider {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model,
-          prompt,
+          prompt: inlineConfig.prompt,
           stream: false,
           options: buildOllamaGenerateOptions({
-            maxTokens: request.maxTokens || 512,
+            maxTokens: inlineConfig.maxTokens,
             temperature: 0.2,
-            stopSequences: request.stopSequences,
+            stopSequences: inlineConfig.stopSequences,
           }),
         }),
         signal: abortController.signal,

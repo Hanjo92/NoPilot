@@ -8,7 +8,8 @@ import {
   ProviderInfo,
 } from '../types';
 import { AuthService } from '../services/authService';
-import { buildCompletionPrompt, buildCommitMessagePrompt } from './prompts';
+import { buildCommitMessagePrompt } from './prompts';
+import { buildInlineCompletionConfig } from './inlineStrategies';
 
 /**
  * Provider for Google Gemini API.
@@ -69,8 +70,7 @@ export class GeminiProvider implements AIProvider {
     token: vscode.CancellationToken
   ): Promise<CompletionResponse> {
     await this.ensureClient();
-
-    const prompt = buildCompletionPrompt(request);
+    const inlineConfig = buildInlineCompletionConfig(this._info.id, request);
 
     // Gemini SDK doesn't support AbortController directly
     // so we check cancellation before and after the call
@@ -79,9 +79,10 @@ export class GeminiProvider implements AIProvider {
     }
 
     const result = await this.model!.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      contents: [{ role: 'user', parts: [{ text: inlineConfig.prompt }] }],
       generationConfig: {
-        stopSequences: request.stopSequences,
+        stopSequences: inlineConfig.stopSequences,
+        maxOutputTokens: inlineConfig.maxTokens,
       }
     });
     const response = result.response;
