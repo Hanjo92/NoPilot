@@ -8,6 +8,9 @@ export function buildCompletionPrompt(request: CompletionRequest): string {
   const contextBlock = request.additionalContext
     ? `\n<ADDITIONAL_CONTEXT>\n// Snippets from the project to provide context for variables and functions:\n${request.additionalContext}\n</ADDITIONAL_CONTEXT>\n`
     : '';
+  const currentBlock = request.currentBlockContext
+    ? `\n<CURRENT_BLOCK>\n${request.currentBlockContext}\n</CURRENT_BLOCK>\n`
+    : '';
 
   if (request.instruction) {
     return `You are a strict code editing Assistant.
@@ -35,7 +38,7 @@ RULES:
 
   if (request.mode === 'automatic') {
     return `Complete the code at <CURSOR>.
-${contextBlock}
+${contextBlock}${currentBlock}
 Language: ${request.language}
 File: ${request.filename}
 
@@ -44,6 +47,7 @@ File: ${request.filename}
 Return only the code to insert.
 Prefer the shortest correct completion.
 Do not repeat surrounding text.
+${request.currentBlockContext ? 'Do not repeat code that already exists in <CURRENT_BLOCK>.' : ''}
 Do not use markdown or explanations.`;
   }
 
