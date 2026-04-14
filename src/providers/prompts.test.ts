@@ -18,6 +18,22 @@ test('buildCompletionPrompt uses a leaner prompt for automatic inline requests',
   assert.doesNotMatch(prompt, /logical completion \(a single expression, line, or block\)/);
 });
 
+test('buildCompletionPrompt includes current block context for automatic inline requests', () => {
+  const prompt = buildCompletionPrompt({
+    mode: 'automatic',
+    prefix: 'const account = ',
+    suffix: '',
+    language: 'typescript',
+    filename: 'example.ts',
+    currentBlockContext: '{\n  const profile = createProfile();\n  <CURRENT_CURSOR>\n}',
+    maxTokens: 96,
+  });
+
+  assert.match(prompt, /<CURRENT_BLOCK>/);
+  assert.match(prompt, /Do not repeat code that already exists in <CURRENT_BLOCK>/);
+  assert.match(prompt, /const profile = createProfile\(\);/);
+});
+
 test('buildCompletionPrompt keeps the fuller prompt for explicit inline requests', () => {
   const prompt = buildCompletionPrompt({
     mode: 'explicit',

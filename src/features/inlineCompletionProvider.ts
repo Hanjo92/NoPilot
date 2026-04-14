@@ -10,6 +10,7 @@ import {
   getInlineStopSequences,
   sliceLines,
 } from './inlineText';
+import { extractCurrentBlockContext } from './inlineBlockContext';
 import {
   buildDerivedContextCacheKey,
   buildSymbolSnippetCacheKey,
@@ -265,6 +266,10 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       cacheScope,
       searchWords
     );
+    const currentBlockContext =
+      triggerKind === vscode.InlineCompletionTriggerKind.Automatic
+        ? extractCurrentBlockContext(document.getText(), document.offsetAt(position))
+        : undefined;
 
     // Single-line vs Multi-line logic
     const currentLine = document.lineAt(position.line).text;
@@ -280,6 +285,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       language: document.languageId,
       filename: document.fileName.split(/[/\\]/).pop() || 'unknown',
       additionalContext: additionalContext.trim(),
+      currentBlockContext,
       stopSequences,
       maxTokens: requestPolicy.maxTokens,
     };

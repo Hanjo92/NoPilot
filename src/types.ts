@@ -15,6 +15,8 @@ export interface CompletionRequest {
   filename: string;
   /** Extra context from open files or file headers */
   additionalContext?: string;
+  /** Current containing block around the cursor for repetition-aware inline prompting */
+  currentBlockContext?: string;
   /** If provided, this is an Inline Chat replacement request, not FIM */
   instruction?: string;
   /** The code block the user selected to be replaced */

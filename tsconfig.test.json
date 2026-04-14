@@ -18,6 +18,8 @@
     "src/providers/inlineStrategies.test.ts",
     "src/providers/providerCredentials.ts",
     "src/providers/providerCredentials.test.ts",
+    "src/features/inlineBlockContext.ts",
+    "src/features/inlineBlockContext.test.ts",
     "src/features/inlineText.ts",
     "src/features/inlineText.test.ts",
     "src/features/inlineContextCache.ts",
