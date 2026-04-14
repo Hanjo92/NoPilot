@@ -50,7 +50,18 @@ test('getInlineRequestPolicy keeps automatic requests lean without hidden same-f
   });
 });
 
-test('getInlineRequestPolicy skips automatic requests on indent-only lines', async () => {
+test('getInlineRequestPolicy keeps fast profile conservative on indent-only lines', async () => {
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'fast',
+    lineText: '    ',
+    cursorCharacter: 4,
+  });
+
+  assert.equal(policy.skip, true);
+});
+
+test('getInlineRequestPolicy allows balanced profile on ordinary indented blank lines', () => {
   const policy = getInlineRequestPolicy({
     isAutomaticTrigger: true,
     qualityProfile: 'balanced',
@@ -58,7 +69,13 @@ test('getInlineRequestPolicy skips automatic requests on indent-only lines', asy
     cursorCharacter: 4,
   });
 
-  assert.equal(policy.skip, true);
+  assert.deepEqual(policy, {
+    skip: false,
+    includeAdditionalContext: false,
+    maxTokens: 96,
+    maxPrefixLines: undefined,
+    maxSuffixLines: undefined,
+  });
 });
 
 test('getInlineRequestPolicy skips automatic requests inside line comments', () => {
