@@ -206,6 +206,17 @@ test('cleanInlineCompletionText removes conversational lead-in before code', () 
   assert.equal(cleaned, 'value + 1');
 });
 
+test('cleanInlineCompletionText keeps single-line code when provider prefixes a blank line', () => {
+  const cleaned = cleanInlineCompletionText({
+    text: '\nvalue + 1',
+    prefix: 'const next = ',
+    suffix: ';',
+    stopSequences: ['\n'],
+  });
+
+  assert.equal(cleaned, 'value + 1');
+});
+
 test('cleanInlineCompletionText removes trailing explanation after a code block', () => {
   const cleaned = cleanInlineCompletionText({
     text: 'if (ready) {\n  run();\n}\n\nExplanation: call run when ready.',

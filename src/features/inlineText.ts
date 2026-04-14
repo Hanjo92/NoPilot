@@ -266,6 +266,10 @@ export function trimSingleLineCompletion(text: string): string {
   return text.split('\n', 1)[0] || '';
 }
 
+function removeLeadingBlankLines(text: string): string {
+  return text.replace(/^(?:[ \t]*\n)+[ \t]*/, '');
+}
+
 interface InlineCompletionCleanupInput {
   text: string;
   prefix: string;
@@ -382,6 +386,7 @@ export function cleanInlineCompletionText(
   cleaned = removeTrailingExplanation(cleaned).trimEnd();
 
   if (input.stopSequences?.includes('\n')) {
+    cleaned = removeLeadingBlankLines(cleaned);
     cleaned = trimSingleLineCompletion(cleaned);
   }
 
