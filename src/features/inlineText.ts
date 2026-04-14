@@ -349,6 +349,27 @@ function removeSuffixLineOverlap(text: string, suffix: string): string {
   return cleaned;
 }
 
+function removeTrailingNextStatement(text: string): string {
+  const splitMatch = text.match(/^([\s\S]*?\})(?:\n\s*\n)([^\n][\s\S]*)$/);
+
+  if (!splitMatch) {
+    return text;
+  }
+
+  const completedBlock = splitMatch[1].trimEnd();
+  const trailingSection = splitMatch[2].trimStart();
+  const looksLikeNextStatement =
+    /^(?:const|let|var|return|if|for|while|switch|try|throw|class|function|async\b|await\b|[A-Za-z_$][\w$]*\s*[=(.[])/.test(
+      trailingSection
+    );
+
+  if (!looksLikeNextStatement) {
+    return text;
+  }
+
+  return completedBlock;
+}
+
 export function cleanInlineCompletionText(
   input: InlineCompletionCleanupInput
 ): string {
@@ -357,6 +378,7 @@ export function cleanInlineCompletionText(
   cleaned = removePrefixOverlap(cleaned, input.prefix);
   cleaned = removeSuffixOverlap(cleaned, input.suffix);
   cleaned = removeSuffixLineOverlap(cleaned, input.suffix);
+  cleaned = removeTrailingNextStatement(cleaned);
   cleaned = removeTrailingExplanation(cleaned).trimEnd();
 
   if (input.stopSequences?.includes('\n')) {

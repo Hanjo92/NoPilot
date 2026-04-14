@@ -216,3 +216,25 @@ test('cleanInlineCompletionText removes trailing explanation after a code block'
 
   assert.equal(cleaned, 'if (ready) {\n  run();\n}');
 });
+
+test('cleanInlineCompletionText removes duplicated structural suffix lines', () => {
+  const cleaned = cleanInlineCompletionText({
+    text: '  run();\n}',
+    prefix: 'if (ready) {\n',
+    suffix: '\n}',
+    stopSequences: undefined,
+  });
+
+  assert.equal(cleaned, '  run();');
+});
+
+test('cleanInlineCompletionText trims obvious next statements after a completed block', () => {
+  const cleaned = cleanInlineCompletionText({
+    text: 'if (ready) {\n  run();\n}\n\nconst fallback = createFallback();',
+    prefix: '',
+    suffix: '',
+    stopSequences: undefined,
+  });
+
+  assert.equal(cleaned, 'if (ready) {\n  run();\n}');
+});
