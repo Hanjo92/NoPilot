@@ -37,8 +37,6 @@ const EXPLICIT_INLINE_MAX_TOKENS = 256;
 interface AutomaticInlineProfile {
   includeAdditionalContext: boolean;
   maxTokens: number;
-  maxPrefixLines: number;
-  maxSuffixLines: number;
   allowIndentedBlankLine: boolean;
   maxBlankLineIndent: number;
 }
@@ -47,24 +45,18 @@ const AUTOMATIC_INLINE_PROFILES: Record<InlineQualityProfile, AutomaticInlinePro
   fast: {
     includeAdditionalContext: false,
     maxTokens: 64,
-    maxPrefixLines: 12,
-    maxSuffixLines: 4,
     allowIndentedBlankLine: false,
     maxBlankLineIndent: 8,
   },
   balanced: {
     includeAdditionalContext: false,
     maxTokens: 96,
-    maxPrefixLines: 20,
-    maxSuffixLines: 8,
     allowIndentedBlankLine: false,
     maxBlankLineIndent: 20,
   },
   rich: {
     includeAdditionalContext: true,
     maxTokens: 192,
-    maxPrefixLines: 40,
-    maxSuffixLines: 16,
     allowIndentedBlankLine: true,
     maxBlankLineIndent: 12,
   },
@@ -86,8 +78,8 @@ function buildAutomaticInlinePolicy(
     skip,
     includeAdditionalContext: profile.includeAdditionalContext,
     maxTokens: profile.maxTokens,
-    maxPrefixLines: profile.maxPrefixLines,
-    maxSuffixLines: profile.maxSuffixLines,
+    maxPrefixLines: undefined,
+    maxSuffixLines: undefined,
   };
 }
 

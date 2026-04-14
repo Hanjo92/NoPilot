@@ -33,7 +33,7 @@ test('getInlineStopSequences returns a real newline stop token', () => {
   assert.deepEqual(stopSequences, ['\n']);
 });
 
-test('getInlineRequestPolicy keeps automatic requests lean', async () => {
+test('getInlineRequestPolicy keeps automatic requests lean without hidden same-file caps', async () => {
   const policy = getInlineRequestPolicy({
     isAutomaticTrigger: true,
     qualityProfile: 'balanced',
@@ -45,8 +45,8 @@ test('getInlineRequestPolicy keeps automatic requests lean', async () => {
     skip: false,
     includeAdditionalContext: false,
     maxTokens: 96,
-    maxPrefixLines: 20,
-    maxSuffixLines: 8,
+    maxPrefixLines: undefined,
+    maxSuffixLines: undefined,
   });
 });
 
@@ -121,8 +121,8 @@ test('getInlineRequestPolicy makes fast profile more conservative', () => {
     skip: false,
     includeAdditionalContext: false,
     maxTokens: 64,
-    maxPrefixLines: 12,
-    maxSuffixLines: 4,
+    maxPrefixLines: undefined,
+    maxSuffixLines: undefined,
   });
 });
 
@@ -138,8 +138,8 @@ test('getInlineRequestPolicy lets rich profile complete on indented blank lines'
     skip: false,
     includeAdditionalContext: true,
     maxTokens: 192,
-    maxPrefixLines: 40,
-    maxSuffixLines: 16,
+    maxPrefixLines: undefined,
+    maxSuffixLines: undefined,
   });
 });
 
