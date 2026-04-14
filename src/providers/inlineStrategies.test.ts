@@ -50,12 +50,18 @@ test('vscode lm uses prompt-directed stopping instead of transport stop sequence
 });
 
 test('ollama uses a local inline prompt and tighter automatic token cap', () => {
-  const config = buildInlineCompletionConfig('ollama', createInlineRequest());
+  const config = buildInlineCompletionConfig('ollama', createInlineRequest({
+    currentBlockContext: '{\n  setState(() {\n    _isSolved = true;\n  });\n  <CURRENT_CURSOR>\n}',
+  }));
 
   assert.equal(config.strategyId, 'ollama');
   assert.deepEqual(config.stopSequences, ['\n']);
   assert.equal(config.maxTokens, 160);
   assert.match(config.prompt, /Return only the missing code at the cursor/);
+  assert.match(config.prompt, /CURRENT_BLOCK/);
+  assert.match(config.prompt, /Continue the current function or block naturally/);
+  assert.match(config.prompt, /Do not repeat code that already exists in the current block/);
+  assert.match(config.prompt, /Do not output unrelated prose or standalone string literals/);
 });
 
 test('inline chat requests fall back to shared prompt behavior for every provider', () => {

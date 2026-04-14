@@ -51,7 +51,7 @@ const AUTOMATIC_INLINE_PROFILES: Record<InlineQualityProfile, AutomaticInlinePro
   balanced: {
     includeAdditionalContext: false,
     maxTokens: 96,
-    allowIndentedBlankLine: false,
+    allowIndentedBlankLine: true,
     maxBlankLineIndent: 20,
   },
   rich: {

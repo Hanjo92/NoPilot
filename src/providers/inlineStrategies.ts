@@ -49,11 +49,14 @@ function buildOllamaInlinePrompt(request: CompletionRequest): string {
   const contextBlock = request.additionalContext
     ? `\nADDITIONAL_CONTEXT:\n${request.additionalContext}\n`
     : '\n';
+  const currentBlock = request.currentBlockContext
+    ? `CURRENT_BLOCK:\n${request.currentBlockContext}\n\n`
+    : '';
   const completionHint = request.mode === 'automatic'
     ? 'Prefer the shortest correct completion.'
     : 'Stop when the requested completion is finished.';
 
-  return `Return only the missing code at the cursor.${contextBlock}Language: ${request.language}
+  return `Return only the missing code at the cursor.${contextBlock}${currentBlock}Language: ${request.language}
 File: ${request.filename}
 
 <CONTEXT_BEFORE>${request.prefix}</CONTEXT_BEFORE><CURSOR><CONTEXT_AFTER>${request.suffix}</CONTEXT_AFTER>
@@ -61,6 +64,9 @@ File: ${request.filename}
 Rules:
 - Output code only.
 - Do not repeat surrounding text.
+- ${request.currentBlockContext ? 'Do not repeat code that already exists in the current block.' : 'Stay consistent with the current local code context.'}
+- ${request.currentBlockContext ? 'Continue the current function or block naturally.' : 'Continue the current code naturally.'}
+- Do not output unrelated prose or standalone string literals.
 - Do not use markdown or explanations.
 - ${completionHint}`;
 }
