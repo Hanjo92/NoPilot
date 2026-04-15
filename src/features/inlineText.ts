@@ -150,21 +150,34 @@ function isImportStatementPrefix(leftStr: string): boolean {
   return /^import\b/.test(trimmed) || /^export\s+(?:\*|\{)/.test(trimmed);
 }
 
-function isLowSignalChainingState(leftStr: string): boolean {
+function getTrailingToken(leftStr: string): string {
   const trimmed = leftStr.trimEnd();
 
   if (trimmed.length === 0) {
+    return '';
+  }
+
+  return trimmed.match(/(\S+)$/)?.[1] ?? '';
+}
+
+function isMemberAccessChainingState(trailingToken: string): boolean {
+  if (trailingToken.length === 0) {
     return false;
   }
 
-  const trailingToken = trimmed.match(/(\S+)$/)?.[1] ?? '';
-
   return (
-    trailingToken.endsWith('?.') ||
-    trailingToken.endsWith('.') ||
-    trailingToken.endsWith('::') ||
-    /^[()[\]{}.,:;!?]+$/.test(trailingToken)
+    /[A-Za-z0-9_$)\]]\.$/.test(trailingToken) ||
+    /[A-Za-z0-9_$)\]]\?\.$/.test(trailingToken) ||
+    /[A-Za-z0-9_$]+::$/.test(trailingToken)
   );
+}
+
+function isLowSignalChainingState(trailingToken: string): boolean {
+  if (trailingToken.length === 0) {
+    return false;
+  }
+
+  return /^[()[\]{}.,:;!?]+$/.test(trailingToken) || trailingToken.endsWith('?.') || trailingToken.endsWith('.') || trailingToken.endsWith('::');
 }
 
 export function getInlineRequestPolicy(
@@ -186,6 +199,9 @@ export function getInlineRequestPolicy(
   const leftStr = input.lineText.substring(0, input.cursorCharacter);
   const rightStr = input.lineText.substring(input.cursorCharacter);
   const lineContext = analyzeLineContext(input.lineText, input.cursorCharacter);
+  const trailingToken = getTrailingToken(leftStr);
+  const allowMemberAccessChaining =
+    input.qualityProfile !== 'fast' && isMemberAccessChainingState(trailingToken);
 
   if (lineContext.insideComment || lineContext.insideString) {
     return buildAutomaticInlinePolicy(profile, true);
@@ -195,7 +211,7 @@ export function getInlineRequestPolicy(
     return buildAutomaticInlinePolicy(profile, true);
   }
 
-  if (isLowSignalChainingState(leftStr)) {
+  if (isLowSignalChainingState(trailingToken) && !allowMemberAccessChaining) {
     return buildAutomaticInlinePolicy(profile, true);
   }
 
