@@ -114,8 +114,44 @@ test('getInlineRequestPolicy skips automatic requests inside import statements',
   assert.equal(policy.skip, true);
 });
 
-test('getInlineRequestPolicy skips automatic requests in low-signal chaining states', () => {
-  const lineText = 'user?.';
+test('getInlineRequestPolicy allows automatic requests after common member-access chaining', () => {
+  const memberAccess = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'balanced',
+    lineText: 'user.',
+    cursorCharacter: 5,
+  });
+  const optionalChain = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'balanced',
+    lineText: 'user?.',
+    cursorCharacter: 6,
+  });
+  const staticAccess = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'balanced',
+    lineText: 'Foo::',
+    cursorCharacter: 5,
+  });
+
+  assert.equal(memberAccess.skip, false);
+  assert.equal(optionalChain.skip, false);
+  assert.equal(staticAccess.skip, false);
+});
+
+test('getInlineRequestPolicy keeps fast profile conservative for chaining states', () => {
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'fast',
+    lineText: 'user?.',
+    cursorCharacter: 6,
+  });
+
+  assert.equal(policy.skip, true);
+});
+
+test('getInlineRequestPolicy still skips punctuation-only automatic states', () => {
+  const lineText = ');';
   const policy = getInlineRequestPolicy({
     isAutomaticTrigger: true,
     qualityProfile: 'balanced',
