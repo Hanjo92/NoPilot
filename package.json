@@ -7,12 +7,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/seunghus/nopilot.git"
+    "url": "https://github.com/Hanjo92/NoPilot.git"
   },
   "bugs": {
-    "url": "https://github.com/seunghus/nopilot/issues"
+    "url": "https://github.com/Hanjo92/NoPilot/issues"
   },
-  "homepage": "https://github.com/seunghus/nopilot#readme",
+  "homepage": "https://github.com/Hanjo92/NoPilot#readme",
   "engines": {
     "vscode": "^1.90.0"
   },
