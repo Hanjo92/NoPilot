@@ -17,10 +17,23 @@ import {
   InlineRequestAssemblyCache,
 } from './inlineContextCache';
 import {
+  buildCurrentFileStructureContext,
+  extractContextKeywords,
+  selectSimilarFileSampleContext,
+  type SimilarFileCandidate,
+} from './inlineProjectContext';
+import {
   COPILOT_EXTENSION_ID,
   isCopilotEnabledForLanguage,
   shouldSkipNoPilotAutomaticInline,
 } from './copilotDetection';
+
+const WORKSPACE_SIMILAR_FILE_EXCLUDE_GLOB =
+  '**/{node_modules,dist,out,build,coverage,.git}/**';
+const MAX_OPEN_SIMILAR_FILE_CANDIDATES = 4;
+const MAX_WORKSPACE_SIMILAR_FILE_CANDIDATES = 4;
+const MAX_WORKSPACE_MATCHES_PER_KEYWORD = 2;
+const SIMILAR_FILE_SEARCH_TIMEOUT_MS = 150;
 
 /**
  * Inline completion provider that uses the active AI provider
@@ -308,36 +321,36 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       documentUri: document.uri.toString(),
       documentVersion: document.version,
       language: document.languageId,
+      contextFlavor: requestPolicy.includeAdditionalContext ? 'full' : 'light',
       prefixStartLine,
       referencedWords: searchWords,
     });
     const cachedContext = await this.requestAssemblyCache.getDerivedContext(
       contextKey,
       async () => {
-        let additionalContext = '';
+        const additionalSections: string[] = [];
         const dependencyUris = new Set<string>([document.uri.toString()]);
+        const structureContext = buildCurrentFileStructureContext({
+          filename: this.getBasename(document.fileName),
+          text: document.getText(),
+        });
 
-        if (prefixStartLine > 0) {
-          const topLines = Math.min(prefixStartLine, 50);
-          additionalContext += `// Top of current file:\n${document.getText(new vscode.Range(0, 0, topLines, 0))}\n\n`;
+        if (structureContext) {
+          additionalSections.push(structureContext);
         }
 
-        const openDocs = vscode.workspace.textDocuments.filter(
-          (doc) =>
-            doc.uri.toString() !== document.uri.toString() &&
-            doc.languageId === document.languageId
-        );
-
-        for (const doc of openDocs.slice(0, 3)) {
-          const text = doc.getText();
-          const snippet =
-            text.length > 1500 ? text.substring(0, 1500) + '\n... (truncated)' : text;
-          const filename = doc.fileName.split(/[/\\]/).pop();
-          dependencyUris.add(doc.uri.toString());
-          additionalContext += `// Open file: ${filename}\n${snippet}\n\n`;
+        if (requestPolicy.includeAdditionalContext) {
+          const similarFileSample = await this.resolveSimilarFileSampleContext(
+            document,
+            searchWords
+          );
+          if (similarFileSample.value) {
+            additionalSections.push(similarFileSample.value);
+            similarFileSample.dependencyUris.forEach((uri) => dependencyUris.add(uri));
+          }
         }
 
-        if (searchWords.length > 0) {
+        if (requestPolicy.includeAdditionalContext && searchWords.length > 0) {
           const extension = this.getFileExtension(document.fileName);
           const searchPromises = searchWords.map((word) =>
             this.resolveReferencedSymbolSnippet(document, extension, word)
@@ -354,13 +367,13 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
               continue;
             }
 
-            additionalContext += result.value;
+            additionalSections.push(result.value.trim());
             result.dependencyUris.forEach((uri) => dependencyUris.add(uri));
           }
         }
 
         return {
-          value: additionalContext.trim(),
+          value: additionalSections.join('\n\n').trim(),
           dependencyUris: Array.from(dependencyUris),
         };
       }
@@ -371,6 +384,170 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     );
 
     return cachedContext.value;
+  }
+
+  private async resolveSimilarFileSampleContext(
+    document: vscode.TextDocument,
+    searchWords: string[]
+  ): Promise<{ value: string; dependencyUris: string[] }> {
+    const candidates = await this.collectSimilarFileCandidates(document, searchWords);
+    if (candidates.length === 0) {
+      return {
+        value: '',
+        dependencyUris: [],
+      };
+    }
+
+    const selection = selectSimilarFileSampleContext({
+      currentUri: document.uri.toString(),
+      currentFilename: this.getBasename(document.fileName),
+      language: document.languageId,
+      referencedWords: searchWords,
+      candidates,
+    });
+
+    if (selection.selectedUri) {
+      log(`Inline similar sample: ${selection.selectedUri}`);
+    }
+
+    return {
+      value: selection.value,
+      dependencyUris: selection.selectedUri ? [selection.selectedUri] : [],
+    };
+  }
+
+  private async collectSimilarFileCandidates(
+    document: vscode.TextDocument,
+    searchWords: string[]
+  ): Promise<SimilarFileCandidate[]> {
+    const currentUri = document.uri.toString();
+    const candidates = new Map<string, SimilarFileCandidate>();
+    const maxCandidates =
+      MAX_OPEN_SIMILAR_FILE_CANDIDATES + MAX_WORKSPACE_SIMILAR_FILE_CANDIDATES;
+
+    const addCandidate = (candidate: SimilarFileCandidate): void => {
+      if (
+        candidate.uri === currentUri ||
+        candidate.language !== document.languageId ||
+        candidate.text.trim().length === 0 ||
+        candidates.has(candidate.uri) ||
+        this.isGeneratedLikeFile(candidate.filename)
+      ) {
+        return;
+      }
+
+      candidates.set(candidate.uri, candidate);
+    };
+
+    const openDocs = vscode.workspace.textDocuments.filter(
+      (doc) =>
+        doc.uri.toString() !== currentUri && doc.languageId === document.languageId
+    );
+
+    for (const doc of openDocs.slice(0, MAX_OPEN_SIMILAR_FILE_CANDIDATES)) {
+      addCandidate({
+        uri: doc.uri.toString(),
+        filename: this.getBasename(doc.fileName),
+        language: doc.languageId,
+        text: doc.getText(),
+        isOpen: true,
+      });
+    }
+
+    const workspaceUris = await Promise.race([
+      this.findWorkspaceSimilarFileUris(document, searchWords),
+      new Promise<vscode.Uri[]>((resolve) =>
+        setTimeout(() => resolve([]), SIMILAR_FILE_SEARCH_TIMEOUT_MS)
+      ),
+    ]);
+
+    for (const uri of workspaceUris) {
+      if (candidates.size >= maxCandidates || uri.toString() === currentUri) {
+        break;
+      }
+
+      const text = await this.readWorkspaceFileText(uri);
+      if (!text) {
+        continue;
+      }
+
+      addCandidate({
+        uri: uri.toString(),
+        filename: this.getBasename(uri.fsPath),
+        language: document.languageId,
+        text,
+        isOpen: false,
+      });
+    }
+
+    return Array.from(candidates.values()).slice(0, maxCandidates);
+  }
+
+  private async findWorkspaceSimilarFileUris(
+    document: vscode.TextDocument,
+    searchWords: string[]
+  ): Promise<vscode.Uri[]> {
+    const extension = this.getFileExtension(document.fileName);
+    if (!extension) {
+      return [];
+    }
+
+    const keywords = extractContextKeywords(this.getBasename(document.fileName), searchWords)
+      .slice(0, 3);
+    if (keywords.length === 0) {
+      return [];
+    }
+
+    const uriGroups = await Promise.all(
+      keywords.map((keyword) =>
+        vscode.workspace.findFiles(
+          `**/*${keyword}*${extension}`,
+          WORKSPACE_SIMILAR_FILE_EXCLUDE_GLOB,
+          MAX_WORKSPACE_MATCHES_PER_KEYWORD
+        )
+      )
+    );
+    const seen = new Set<string>();
+    const uris: vscode.Uri[] = [];
+
+    for (const group of uriGroups) {
+      for (const uri of group) {
+        const uriKey = uri.toString();
+        const filename = this.getBasename(uri.fsPath);
+        if (
+          seen.has(uriKey) ||
+          uriKey === document.uri.toString() ||
+          this.isGeneratedLikeFile(filename)
+        ) {
+          continue;
+        }
+
+        seen.add(uriKey);
+        uris.push(uri);
+        if (uris.length >= MAX_WORKSPACE_SIMILAR_FILE_CANDIDATES) {
+          return uris;
+        }
+      }
+    }
+
+    return uris;
+  }
+
+  private async readWorkspaceFileText(uri: vscode.Uri): Promise<string | undefined> {
+    try {
+      const fileData = await vscode.workspace.fs.readFile(uri);
+      return Buffer.from(fileData).toString('utf8');
+    } catch (_error) {
+      return undefined;
+    }
+  }
+
+  private isGeneratedLikeFile(filename: string): boolean {
+    return (
+      /\.d\.ts$/i.test(filename) ||
+      /\.(?:g|gen|generated)\.[^.]+$/i.test(filename) ||
+      /\.min\.[^.]+$/i.test(filename)
+    );
   }
 
   private async resolveReferencedSymbolSnippet(
@@ -462,6 +639,10 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
   private getFileExtension(filename: string): string {
     const dotIndex = filename.lastIndexOf('.');
     return dotIndex >= 0 ? filename.substring(dotIndex) : '';
+  }
+
+  private getBasename(filename: string): string {
+    return filename.split(/[/\\]/).pop() || 'unknown';
   }
 
   private shouldSkipAutomaticRequestForCopilot(

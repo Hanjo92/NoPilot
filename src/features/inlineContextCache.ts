@@ -14,6 +14,7 @@ interface DerivedContextKeyInput {
   documentUri: string;
   documentVersion: number;
   language: string;
+  contextFlavor: string;
   prefixStartLine: number;
   referencedWords: string[];
 }
@@ -41,6 +42,7 @@ export function buildDerivedContextCacheKey(input: DerivedContextKeyInput): stri
     input.documentUri,
     `v${input.documentVersion}`,
     input.language,
+    `ctx:${input.contextFlavor}`,
     `line:${input.prefixStartLine}`,
     input.referencedWords.join(','),
   ].join('|');
