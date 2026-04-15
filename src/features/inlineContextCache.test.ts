@@ -14,6 +14,7 @@ test('derived context cache reuses the same document-version key', async () => {
     documentUri: 'file:///repo/sample.ts',
     documentVersion: 3,
     language: 'typescript',
+    contextFlavor: 'full',
     prefixStartLine: 10,
     referencedWords: ['ShopModel'],
   });
@@ -74,6 +75,7 @@ test('different provider scopes do not share derived context entries', async () 
     documentUri: 'file:///repo/sample.ts',
     documentVersion: 3,
     language: 'typescript',
+    contextFlavor: 'full',
     prefixStartLine: 10,
     referencedWords: ['ShopModel'],
   });
@@ -82,6 +84,7 @@ test('different provider scopes do not share derived context entries', async () 
     documentUri: 'file:///repo/sample.ts',
     documentVersion: 3,
     language: 'typescript',
+    contextFlavor: 'full',
     prefixStartLine: 10,
     referencedWords: ['ShopModel'],
   });
@@ -106,6 +109,7 @@ test('different document versions do not share derived context entries', async (
     documentUri: 'file:///repo/sample.ts',
     documentVersion: 3,
     language: 'typescript',
+    contextFlavor: 'full',
     prefixStartLine: 10,
     referencedWords: ['ShopModel'],
   });
@@ -114,6 +118,7 @@ test('different document versions do not share derived context entries', async (
     documentUri: 'file:///repo/sample.ts',
     documentVersion: 4,
     language: 'typescript',
+    contextFlavor: 'full',
     prefixStartLine: 10,
     referencedWords: ['ShopModel'],
   });
@@ -125,6 +130,40 @@ test('different document versions do not share derived context entries', async (
   await cache.getDerivedContext(versionFourKey, async () => {
     builds += 1;
     return { value: '// v4 context', dependencyUris: ['file:///repo/sample.ts'] };
+  });
+
+  assert.equal(builds, 2);
+});
+
+test('different context flavors do not share derived context entries', async () => {
+  const cache = new InlineRequestAssemblyCache();
+  let builds = 0;
+  const lightKey = buildDerivedContextCacheKey({
+    scope: 'openai::gpt-4o-mini::balanced',
+    documentUri: 'file:///repo/sample.ts',
+    documentVersion: 3,
+    language: 'typescript',
+    contextFlavor: 'light',
+    prefixStartLine: 10,
+    referencedWords: ['ShopModel'],
+  });
+  const fullKey = buildDerivedContextCacheKey({
+    scope: 'openai::gpt-4o-mini::balanced',
+    documentUri: 'file:///repo/sample.ts',
+    documentVersion: 3,
+    language: 'typescript',
+    contextFlavor: 'full',
+    prefixStartLine: 10,
+    referencedWords: ['ShopModel'],
+  });
+
+  await cache.getDerivedContext(lightKey, async () => {
+    builds += 1;
+    return { value: '// light context', dependencyUris: ['file:///repo/sample.ts'] };
+  });
+  await cache.getDerivedContext(fullKey, async () => {
+    builds += 1;
+    return { value: '// full context', dependencyUris: ['file:///repo/sample.ts'] };
   });
 
   assert.equal(builds, 2);
