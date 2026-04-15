@@ -33,6 +33,7 @@
     "commit message"
   ],
   "activationEvents": [
+    "onLanguage",
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
@@ -191,7 +192,7 @@
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "compile": "tsc -noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test .test-dist/providers/modelSelection.test.js .test-dist/providers/ollamaModels.test.js .test-dist/providers/prompts.test.js .test-dist/providers/inlineStrategies.test.js .test-dist/providers/providerCredentials.test.js .test-dist/features/inlineBlockContext.test.js .test-dist/features/inlineProjectContext.test.js .test-dist/features/inlineText.test.js .test-dist/features/inlineContextCache.test.js .test-dist/features/copilotDetection.test.js .test-dist/ui/statusBarPresentation.test.js .test-dist/ui/settingsPanelState.test.js .test-dist/ui/settingsWebview.test.js .test-dist/ui/settingsPanelActions.test.js .test-dist/services/gitSelection.test.js",
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/packageManifest.test.js .test-dist/providers/modelSelection.test.js .test-dist/providers/ollamaModels.test.js .test-dist/providers/prompts.test.js .test-dist/providers/inlineStrategies.test.js .test-dist/providers/providerCredentials.test.js .test-dist/features/inlineBlockContext.test.js .test-dist/features/inlineProjectContext.test.js .test-dist/features/inlineText.test.js .test-dist/features/inlineContextCache.test.js .test-dist/features/copilotDetection.test.js .test-dist/ui/statusBarPresentation.test.js .test-dist/ui/settingsPanelState.test.js .test-dist/ui/settingsWebview.test.js .test-dist/ui/settingsPanelActions.test.js .test-dist/services/gitSelection.test.js",
     "lint": "eslint src"
   },
   "devDependencies": {

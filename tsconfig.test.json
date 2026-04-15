@@ -8,6 +8,7 @@
     "sourceMap": false
   },
   "include": [
+    "src/packageManifest.test.ts",
     "src/providers/modelSelection.ts",
     "src/providers/modelSelection.test.ts",
     "src/providers/ollamaModels.ts",
