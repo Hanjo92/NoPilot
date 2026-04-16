@@ -3,8 +3,13 @@
   "displayName": "NoPilot",
   "description": "Replace GitHub Copilot with your preferred AI provider — Claude, GPT, Gemini, Ollama, and more.",
   "version": "0.1.0",
-  "publisher": "nopilot",
+  "publisher": "hanjo92",
   "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#2563eb",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/Hanjo92/NoPilot.git"

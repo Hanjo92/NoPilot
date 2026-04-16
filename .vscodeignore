@@ -4,6 +4,12 @@ src/**
 .test-dist/**
 node_modules/**
 .gitignore
+.github/**
+docs/superpowers/**
+.superpowers/**
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
 tsconfig.json
 tsconfig.test.json
 esbuild.js
