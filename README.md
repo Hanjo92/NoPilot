@@ -45,5 +45,20 @@ You can customize NoPilot's behavior fully via **VS Code Settings > Extensions >
 
 Your source code is only sent to the specific provider you select. Keys are stored strictly locally using VS Code's Secret Storage, ensuring they are never exposed in configurations.
 
+## 📦 Data Handling
+
+- NoPilot sends prompts and code context only to the AI provider you explicitly choose.
+- Provider API keys can be stored locally in VS Code SecretStorage.
+- Ollama requests are sent to the endpoint you configure, which may be local or on your network.
+- This project currently does not implement custom telemetry or analytics collection.
+- You are responsible for reviewing the data handling and retention policies of any third-party model provider you enable.
+
+## 🤝 Project Links
+
+- Support: [SUPPORT.md](./SUPPORT.md)
+- Contributing: [CONTRIBUTING.md](./CONTRIBUTING.md)
+- Code of Conduct: [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
+- Security: [SECURITY.md](./SECURITY.md)
+
 ---
 **Enjoy writing code faster and smarter! 👨‍💻👩‍💻**
