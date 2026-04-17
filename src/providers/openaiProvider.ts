@@ -10,6 +10,12 @@ import {
 import { AuthService } from '../services/authService';
 import { buildCommitMessagePrompt } from './prompts';
 import { buildInlineCompletionConfig } from './inlineStrategies';
+import {
+  getDirectProviderDefaultModel,
+  getDirectProviderFallbackModels,
+  refreshOpenAIModelCatalog,
+  resolveDirectProviderModelState,
+} from './directProviderModels';
 
 /**
  * Provider for OpenAI API (GPT, Codex, etc.)
@@ -25,14 +31,18 @@ export class OpenAIProvider implements AIProvider {
     description: 'OpenAI GPT API',
     status: 'needs-key',
     currentModel: '',
-    availableModels: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o4-mini'],
+    availableModels: getDirectProviderFallbackModels('openai'),
     requiresApiKey: true,
     hasApiKey: false,
   };
 
   constructor(private readonly authService: AuthService) {
     const config = vscode.workspace.getConfiguration('nopilot.openai');
-    this._info.currentModel = config.get('model', 'gpt-4o-mini');
+    this._info.currentModel = config.get(
+      'model',
+      getDirectProviderDefaultModel('openai')
+    );
+    this.applyModelState();
   }
 
   get info(): ProviderInfo {
@@ -44,6 +54,7 @@ export class OpenAIProvider implements AIProvider {
     const envKey = process.env.OPENAI_API_KEY;
     if (envKey) {
       this.client = new OpenAI({ apiKey: envKey });
+      await this.refreshAvailableModels(envKey);
       this._info.hasApiKey = true;
       this._info.status = 'ready';
       return true;
@@ -53,6 +64,7 @@ export class OpenAIProvider implements AIProvider {
     const apiKey = await this.authService.getApiKey('openai');
     if (apiKey) {
       this.client = new OpenAI({ apiKey });
+      await this.refreshAvailableModels(apiKey);
       this._info.hasApiKey = true;
       this._info.status = 'ready';
       return true;
@@ -65,6 +77,25 @@ export class OpenAIProvider implements AIProvider {
 
   setCurrentModel(model: string): void {
     this._info.currentModel = model;
+  }
+
+  private applyModelState(liveModels?: string[]): void {
+    const nextState = resolveDirectProviderModelState({
+      providerId: 'openai',
+      currentModel: this._info.currentModel,
+      liveModels,
+    });
+
+    this._info.availableModels = nextState.availableModels;
+    this._info.currentModel = nextState.currentModel;
+  }
+
+  private async refreshAvailableModels(apiKey: string): Promise<void> {
+    try {
+      this.applyModelState(await refreshOpenAIModelCatalog(apiKey));
+    } catch {
+      this.applyModelState();
+    }
   }
 
   async complete(

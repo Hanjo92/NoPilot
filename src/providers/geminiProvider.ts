@@ -10,6 +10,12 @@ import {
 import { AuthService } from '../services/authService';
 import { buildCommitMessagePrompt } from './prompts';
 import { buildInlineCompletionConfig } from './inlineStrategies';
+import {
+  getDirectProviderDefaultModel,
+  getDirectProviderFallbackModels,
+  refreshGeminiModelCatalog,
+  resolveDirectProviderModelState,
+} from './directProviderModels';
 
 /**
  * Provider for Google Gemini API.
@@ -26,14 +32,18 @@ export class GeminiProvider implements AIProvider {
     description: 'Google Gemini API',
     status: 'needs-key',
     currentModel: '',
-    availableModels: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-pro'],
+    availableModels: getDirectProviderFallbackModels('gemini'),
     requiresApiKey: true,
     hasApiKey: false,
   };
 
   constructor(private readonly authService: AuthService) {
     const config = vscode.workspace.getConfiguration('nopilot.gemini');
-    this._info.currentModel = config.get('model', 'gemini-2.0-flash');
+    this._info.currentModel = config.get(
+      'model',
+      getDirectProviderDefaultModel('gemini')
+    );
+    this.applyModelState();
   }
 
   get info(): ProviderInfo {
@@ -44,7 +54,7 @@ export class GeminiProvider implements AIProvider {
     const hasKey = await this.authService.hasApiKey('gemini');
     this._info.hasApiKey = hasKey;
     this._info.status = hasKey ? 'ready' : 'needs-key';
-    if (hasKey && !this.genAI) {
+    if (hasKey) {
       await this.initClient();
     }
     return hasKey;
@@ -53,8 +63,28 @@ export class GeminiProvider implements AIProvider {
   private async initClient(): Promise<void> {
     const apiKey = await this.authService.getApiKey('gemini');
     if (apiKey) {
+      await this.refreshAvailableModels(apiKey);
       this.genAI = new GoogleGenerativeAI(apiKey);
       this.model = this.genAI.getGenerativeModel({ model: this._info.currentModel });
+    }
+  }
+
+  private applyModelState(liveModels?: string[]): void {
+    const nextState = resolveDirectProviderModelState({
+      providerId: 'gemini',
+      currentModel: this._info.currentModel,
+      liveModels,
+    });
+
+    this._info.availableModels = nextState.availableModels;
+    this._info.currentModel = nextState.currentModel;
+  }
+
+  private async refreshAvailableModels(apiKey: string): Promise<void> {
+    try {
+      this.applyModelState(await refreshGeminiModelCatalog(apiKey));
+    } catch {
+      this.applyModelState();
     }
   }
 
