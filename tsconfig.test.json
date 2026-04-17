@@ -11,6 +11,8 @@
     "src/packageManifest.test.ts",
     "src/providers/modelSelection.ts",
     "src/providers/modelSelection.test.ts",
+    "src/providers/directProviderModels.ts",
+    "src/providers/directProviderModels.test.ts",
     "src/providers/ollamaModels.ts",
     "src/providers/ollamaModels.test.ts",
     "src/providers/prompts.ts",

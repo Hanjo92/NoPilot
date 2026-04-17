@@ -10,6 +10,12 @@ import {
 import { AuthService } from '../services/authService';
 import { buildCommitMessagePrompt } from './prompts';
 import { buildInlineCompletionConfig } from './inlineStrategies';
+import {
+  getDirectProviderDefaultModel,
+  getDirectProviderFallbackModels,
+  refreshAnthropicModelCatalog,
+  resolveDirectProviderModelState,
+} from './directProviderModels';
 
 /**
  * Provider for Anthropic Claude API.
@@ -25,18 +31,18 @@ export class AnthropicProvider implements AIProvider {
     description: 'Anthropic Claude API',
     status: 'needs-key',
     currentModel: '',
-    availableModels: [
-      'claude-sonnet-4-20250514',
-      'claude-opus-4-20250514',
-      'claude-3-5-haiku-20241022',
-    ],
+    availableModels: getDirectProviderFallbackModels('anthropic'),
     requiresApiKey: true,
     hasApiKey: false,
   };
 
   constructor(private readonly authService: AuthService) {
     const config = vscode.workspace.getConfiguration('nopilot.anthropic');
-    this._info.currentModel = config.get('model', 'claude-sonnet-4-20250514');
+    this._info.currentModel = config.get(
+      'model',
+      getDirectProviderDefaultModel('anthropic')
+    );
+    this.applyModelState();
   }
 
   get info(): ProviderInfo {
@@ -50,6 +56,7 @@ export class AnthropicProvider implements AIProvider {
     if (hasKey && !this.client) {
       const apiKey = await this.authService.getApiKey('anthropic');
       if (apiKey) {
+        await this.refreshAvailableModels(apiKey);
         this.client = new Anthropic({ apiKey });
       }
     }
@@ -58,6 +65,25 @@ export class AnthropicProvider implements AIProvider {
 
   setCurrentModel(model: string): void {
     this._info.currentModel = model;
+  }
+
+  private applyModelState(liveModels?: string[]): void {
+    const nextState = resolveDirectProviderModelState({
+      providerId: 'anthropic',
+      currentModel: this._info.currentModel,
+      liveModels,
+    });
+
+    this._info.availableModels = nextState.availableModels;
+    this._info.currentModel = nextState.currentModel;
+  }
+
+  private async refreshAvailableModels(apiKey: string): Promise<void> {
+    try {
+      this.applyModelState(await refreshAnthropicModelCatalog(apiKey));
+    } catch {
+      this.applyModelState();
+    }
   }
 
   async complete(
