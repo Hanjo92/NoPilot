@@ -48,6 +48,56 @@ test('getNoPilotStatusBarPresentation shows remote Ollama request state', () => 
   assert.match(presentation.tooltip, /Slow response from model/);
 });
 
+test('getNoPilotStatusBarPresentation shows waiting Ollama request state', () => {
+  const presentation = getNoPilotStatusBarPresentation({
+    displayName: 'Ollama',
+    providerName: 'Ollama',
+    model: 'qwen2.5-coder:7b',
+    inlineEnabled: true,
+    pausedForCopilot: false,
+    requestStatus: {
+      kind: 'waiting',
+      providerId: 'ollama',
+      providerName: 'Ollama',
+      model: 'qwen2.5-coder:7b',
+    },
+  });
+
+  assert.match(presentation.text, /\$\(sync~spin\) \$\(sparkle\) Ollama/);
+  assert.match(presentation.tooltip, /Requesting from remote Ollama.../);
+});
+
+test('getNoPilotStatusBarPresentation keeps request state out of tooltip when Copilot is pausing', () => {
+  const presentation = getNoPilotStatusBarPresentation({
+    displayName: 'Ollama',
+    providerName: 'Ollama',
+    model: 'qwen2.5-coder:7b',
+    inlineEnabled: true,
+    pausedForCopilot: true,
+    requestStatus: {
+      kind: 'waiting',
+      providerId: 'ollama',
+      message: 'Requesting from remote Ollama...',
+    },
+  });
+
+  assert.match(presentation.text, /\$\(debug-pause\) \$\(sparkle\) Ollama/);
+  assert.match(presentation.tooltip, /paused because GitHub Copilot is active for this language/);
+  assert.doesNotMatch(presentation.tooltip, /Requesting from remote Ollama\.\.\./);
+});
+
+test('getNoPilotStatusBarPresentation tooltip has no blank lines without request status', () => {
+  const presentation = getNoPilotStatusBarPresentation({
+    displayName: 'Ollama',
+    providerName: 'Ollama',
+    model: 'qwen2.5-coder:7b',
+    inlineEnabled: true,
+    pausedForCopilot: false,
+  });
+
+  assert.doesNotMatch(presentation.tooltip, /\n\n/);
+});
+
 test('getNoPilotStatusBarPresentation keeps disabled state above request state', () => {
   const presentation = getNoPilotStatusBarPresentation({
     displayName: 'Ollama',

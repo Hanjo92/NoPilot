@@ -20,6 +20,14 @@ test('getInlineRequestStatusMessage returns practical remote Ollama copy', () =>
     'Requesting from remote Ollama...'
   );
 
+  assert.equal(
+    getInlineRequestStatusMessage({
+      kind: 'waiting',
+      message: 'Custom waiting message',
+    }),
+    'Custom waiting message'
+  );
+
   assert.equal(getInlineRequestStatusMessage({ kind: 'slow' }), 'Slow response from model');
   assert.equal(getInlineRequestStatusMessage({ kind: 'cancelled' }), 'Request cancelled');
   assert.equal(

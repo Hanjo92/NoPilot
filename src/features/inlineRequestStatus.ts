@@ -5,6 +5,10 @@ export function createIdleInlineRequestStatus(): InlineRequestStatus {
 }
 
 export function getInlineRequestStatusMessage(status: InlineRequestStatus): string {
+  if (status.message) {
+    return status.message;
+  }
+
   switch (status.kind) {
     case 'waiting':
       return status.providerId === 'ollama'

@@ -39,8 +39,16 @@ export function getNoPilotStatusBarPresentation(
       ? 'Inline suggestions: paused because GitHub Copilot is active for this language'
       : 'Inline suggestions: active';
 
+  const tooltipLines = [
+    `NoPilot — ${input.displayName}`,
+    `Provider: ${input.providerName} | Model: ${input.model || 'auto'}`,
+    inlineStatus,
+    requestMessage,
+    'Click to switch',
+  ].filter(Boolean);
+
   return {
     text: `${statusPrefix}$(sparkle) ${input.displayName}`,
-    tooltip: `NoPilot — ${input.displayName}\nProvider: ${input.providerName} | Model: ${input.model || 'auto'}\n${inlineStatus}\n${requestMessage ? `\n${requestMessage}` : ''}\nClick to switch`,
+    tooltip: tooltipLines.join('\n'),
   };
 }
