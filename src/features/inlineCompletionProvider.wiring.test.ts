@@ -111,6 +111,23 @@ test('inline provider records remote success only after usable completion valida
   ]);
 });
 
+test('inline provider re-checks freshness after async request assembly before lifecycle starts', () => {
+  const source = readSource('src/features/inlineCompletionProvider.ts');
+
+  assertAppearsInOrder(source, [
+    'const request = await this.buildRequest',
+    'if (requestId !== this.requestCounter)',
+    'return undefined;',
+    'const buildDurationMs = Date.now() - buildStart;',
+    'this.beginRemoteRequestLifecycle(requestId, activeProvider.info);',
+    'const response = await this.providerManager.complete(request, token);',
+  ]);
+  assert.match(
+    source,
+    /private beginRemoteRequestLifecycle\(requestId: number, providerInfo: ProviderInfo\): void \{[\s\S]*?if \(requestId !== this\.requestCounter\) \{[\s\S]*?return;[\s\S]*?\}/
+  );
+});
+
 test('inline provider clears remote lifecycle on skip and cache-hit exits', () => {
   const source = readSource('src/features/inlineCompletionProvider.ts');
 
@@ -183,5 +200,10 @@ test('extension refreshes status bar from inline request status changes', () => 
     source,
     /inlineProvider\.onDidChangeRequestStatus\(\(\) => refreshStatusBar\(\)\)/
   );
-  assert.match(source, /requestStatus: inlineProvider\?\.getRequestStatus\(\),/);
+  assert.match(source, /const requestStatus = inlineProvider\?\.getRequestStatus\(\);/);
+  assert.match(
+    source,
+    /const activeRequestStatus = requestStatus\?\.providerId === info\.id\s*\? requestStatus\s*: undefined;/
+  );
+  assert.match(source, /requestStatus: activeRequestStatus,/);
 });

@@ -224,6 +224,14 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       cacheScope,
       inlineOptimizationProfile
     );
+
+    if (requestId !== this.requestCounter) {
+      if (shouldTrackRemoteAutomatic) {
+        this.clearRemoteRequestLifecycle(activeProvider.info, requestId, 'cancelled');
+      }
+      return undefined;
+    }
+
     const buildDurationMs = Date.now() - buildStart;
     log(
       `Inline request #${requestId}: ${request.filename} (${request.language}), line ${position.line + 1}, prefix ${request.prefix.length} chars, build ${buildDurationMs}ms`
@@ -512,6 +520,10 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
   }
 
   private beginRemoteRequestLifecycle(requestId: number, providerInfo: ProviderInfo): void {
+    if (requestId !== this.requestCounter) {
+      return;
+    }
+
     this.activeRequestStatusId = requestId;
     this.setRequestStatus({
       kind: 'waiting',

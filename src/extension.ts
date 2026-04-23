@@ -175,13 +175,17 @@ function updateStatusBar(
   const displayName = providerManager.getActiveDisplayName();
   const active = providerManager.getActiveProvider();
   const info = active.info;
+  const requestStatus = inlineProvider?.getRequestStatus();
+  const activeRequestStatus = requestStatus?.providerId === info.id
+    ? requestStatus
+    : undefined;
   const presentation = getNoPilotStatusBarPresentation({
     displayName,
     providerName: info.name,
     model: info.currentModel,
     inlineEnabled: inlineProvider?.isEnabled() ?? true,
     pausedForCopilot: inlineProvider?.isPausedForCopilot() ?? false,
-    requestStatus: inlineProvider?.getRequestStatus(),
+    requestStatus: activeRequestStatus,
   });
 
   statusBarItem.text = presentation.text;
