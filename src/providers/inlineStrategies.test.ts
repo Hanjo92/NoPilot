@@ -64,6 +64,28 @@ test('ollama uses a local inline prompt and tighter automatic token cap', () => 
   assert.match(config.prompt, /Do not output unrelated prose or standalone string literals/);
 });
 
+test('remote Ollama automatic requests use a smaller token cap', () => {
+  const config = buildInlineCompletionConfig('ollama', createInlineRequest({
+    inlineOptimizationProfile: 'remote-ollama',
+    maxTokens: 192,
+  }));
+
+  assert.equal(config.strategyId, 'ollama');
+  assert.equal(config.maxTokens, 96);
+  assert.match(config.prompt, /Prefer the shortest correct completion/);
+});
+
+test('remote Ollama explicit requests keep requested token budget', () => {
+  const config = buildInlineCompletionConfig('ollama', createInlineRequest({
+    mode: 'explicit',
+    inlineOptimizationProfile: 'remote-ollama',
+    maxTokens: 220,
+  }));
+
+  assert.equal(config.strategyId, 'ollama');
+  assert.equal(config.maxTokens, 220);
+});
+
 test('inline chat requests fall back to shared prompt behavior for every provider', () => {
   const config = buildInlineCompletionConfig('ollama', createInlineRequest({
     mode: 'chat',

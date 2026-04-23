@@ -25,6 +25,8 @@ export interface CompletionRequest {
   stopSequences?: string[];
   /** Max tokens to generate */
   maxTokens?: number;
+  /** Inline request optimization profile for provider-specific latency tuning */
+  inlineOptimizationProfile?: InlineOptimizationProfile;
 }
 
 export interface CompletionResponse {
@@ -46,6 +48,23 @@ export interface CommitMessageRequest {
 // ─── Provider ───
 
 export type InlineQualityProfile = 'fast' | 'balanced' | 'rich';
+export type OllamaRemoteMode = 'auto' | 'forced-on' | 'forced-off';
+export type InlineOptimizationProfile = 'standard' | 'remote-ollama';
+
+export type InlineRequestStatusKind =
+  | 'idle'
+  | 'waiting'
+  | 'slow'
+  | 'cancelled'
+  | 'connection-problem';
+
+export interface InlineRequestStatus {
+  kind: InlineRequestStatusKind;
+  providerId?: ProviderId;
+  providerName?: string;
+  model?: string;
+  message?: string;
+}
 
 export type ProviderId = 'vscode-lm' | 'anthropic' | 'openai' | 'gemini' | 'ollama';
 
@@ -111,6 +130,7 @@ export interface WebviewState {
     maxPrefixLines: number;
     maxSuffixLines: number;
     ollamaEndpoint: string;
+    ollamaRemoteMode: OllamaRemoteMode;
     commitLanguage: string;
     commitFormat: string;
   };

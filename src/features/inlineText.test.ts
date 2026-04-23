@@ -44,9 +44,29 @@ test('getInlineRequestPolicy keeps automatic requests lean without hidden same-f
   assert.deepEqual(policy, {
     skip: false,
     includeAdditionalContext: false,
+    additionalContextScope: 'none',
     maxTokens: 96,
     maxPrefixLines: undefined,
     maxSuffixLines: undefined,
+  });
+});
+
+test('getInlineRequestPolicy trims automatic remote Ollama requests', () => {
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: true,
+    qualityProfile: 'rich',
+    lineText: 'return ',
+    cursorCharacter: 7,
+    inlineOptimizationProfile: 'remote-ollama',
+  });
+
+  assert.deepEqual(policy, {
+    skip: false,
+    includeAdditionalContext: true,
+    additionalContextScope: 'file',
+    maxTokens: 64,
+    maxPrefixLines: 30,
+    maxSuffixLines: 10,
   });
 });
 
@@ -72,6 +92,7 @@ test('getInlineRequestPolicy allows balanced profile on ordinary indented blank 
   assert.deepEqual(policy, {
     skip: false,
     includeAdditionalContext: false,
+    additionalContextScope: 'none',
     maxTokens: 96,
     maxPrefixLines: undefined,
     maxSuffixLines: undefined,
@@ -173,6 +194,7 @@ test('getInlineRequestPolicy makes fast profile more conservative', () => {
   assert.deepEqual(policy, {
     skip: false,
     includeAdditionalContext: false,
+    additionalContextScope: 'none',
     maxTokens: 64,
     maxPrefixLines: undefined,
     maxSuffixLines: undefined,
@@ -190,6 +212,7 @@ test('getInlineRequestPolicy lets rich profile complete on indented blank lines'
   assert.deepEqual(policy, {
     skip: false,
     includeAdditionalContext: true,
+    additionalContextScope: 'workspace',
     maxTokens: 192,
     maxPrefixLines: undefined,
     maxSuffixLines: undefined,
@@ -216,6 +239,7 @@ test('getInlineRequestPolicy preserves richer context for explicit requests', as
   assert.deepEqual(policy, {
     skip: false,
     includeAdditionalContext: true,
+    additionalContextScope: 'workspace',
     maxTokens: 256,
     maxPrefixLines: undefined,
     maxSuffixLines: undefined,
@@ -235,16 +259,44 @@ test('getInlineRequestPolicy keeps explicit requests available in filtered autom
   assert.equal(policy.maxTokens, 256);
 });
 
+test('getInlineRequestPolicy keeps explicit remote Ollama requests rich', () => {
+  const policy = getInlineRequestPolicy({
+    isAutomaticTrigger: false,
+    qualityProfile: 'fast',
+    lineText: '',
+    cursorCharacter: 0,
+    inlineOptimizationProfile: 'remote-ollama',
+  });
+
+  assert.deepEqual(policy, {
+    skip: false,
+    includeAdditionalContext: true,
+    additionalContextScope: 'workspace',
+    maxTokens: 256,
+    maxPrefixLines: undefined,
+    maxSuffixLines: undefined,
+  });
+});
+
 test('buildInlineCacheScope separates provider and model variants', async () => {
   const inlineText = await import('./inlineText');
 
   assert.equal(
     (inlineText as any).buildInlineCacheScope('ollama', 'qwen2.5-coder:7b', 'fast'),
-    'ollama::qwen2.5-coder:7b::fast'
+    'ollama::qwen2.5-coder:7b::fast::standard'
   );
   assert.equal(
     (inlineText as any).buildInlineCacheScope('openai', '', 'balanced'),
-    'openai::auto::balanced'
+    'openai::auto::balanced::standard'
+  );
+});
+
+test('buildInlineCacheScope includes inline optimization profile', async () => {
+  const inlineText = await import('./inlineText');
+
+  assert.equal(
+    (inlineText as any).buildInlineCacheScope('ollama', 'qwen2.5-coder:7b', 'fast', 'remote-ollama'),
+    'ollama::qwen2.5-coder:7b::fast::remote-ollama'
   );
 });
 

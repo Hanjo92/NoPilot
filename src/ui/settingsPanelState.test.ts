@@ -57,6 +57,7 @@ test('buildSettingsWebviewState refreshes Ollama before returning provider info'
         'inline.maxPrefixLines': 50,
         'inline.maxSuffixLines': 20,
         'ollama.endpoint': 'http://127.0.0.1:11434',
+        'ollama.remoteMode': 'forced-on',
         'commitMessage.language': 'en',
         'commitMessage.format': 'conventional',
       };
@@ -68,6 +69,7 @@ test('buildSettingsWebviewState refreshes Ollama before returning provider info'
   assert.equal(ollama.refreshCalls, 1);
   assert.equal(state.activeProviderId, 'ollama');
   assert.equal(state.settings.ollamaEndpoint, 'http://127.0.0.1:11434');
+  assert.equal(state.settings.ollamaRemoteMode, 'forced-on');
   assert.equal(state.settings.qualityProfile, 'rich');
   assert.deepEqual(state.providers[0].availableModels, ['qwen2.5-coder:7b']);
 });

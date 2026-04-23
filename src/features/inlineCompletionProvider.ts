@@ -1,6 +1,13 @@
 import * as vscode from 'vscode';
 import { ProviderManager } from '../providers/providerManager';
-import { CompletionRequest, InlineQualityProfile } from '../types';
+import type {
+  CompletionRequest,
+  InlineOptimizationProfile,
+  InlineQualityProfile,
+  InlineRequestStatus,
+  OllamaRemoteMode,
+  ProviderInfo,
+} from '../types';
 import { log, logError } from '../utils/logger';
 import {
   cleanInlineCompletionText,
@@ -27,6 +34,15 @@ import {
   isCopilotEnabledForLanguage,
   shouldSkipNoPilotAutomaticInline,
 } from './copilotDetection';
+import {
+  createIdleInlineRequestStatus,
+  getInlineRequestStatusMessage,
+} from './inlineRequestStatus';
+import {
+  createOllamaRemoteModeTracker,
+  normalizeOllamaRemoteMode,
+  resolveOllamaRemoteMode,
+} from '../providers/ollamaRemoteMode';
 
 const WORKSPACE_SIMILAR_FILE_EXCLUDE_GLOB =
   '**/{node_modules,dist,out,build,coverage,.git}/**';
@@ -55,6 +71,21 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
   private cacheKeys: string[] = [];
   private readonly MAX_CACHE_SIZE = 50;
   private readonly requestAssemblyCache = new InlineRequestAssemblyCache();
+  private readonly requestStatusEmitter = new vscode.EventEmitter<InlineRequestStatus>();
+  readonly onDidChangeRequestStatus = this.requestStatusEmitter.event;
+  private requestStatus: InlineRequestStatus = createIdleInlineRequestStatus();
+  private readonly ollamaRemoteTracker = createOllamaRemoteModeTracker();
+  private activeRequestStatusId: number | undefined;
+  private requestStatusClearTimer: ReturnType<typeof setTimeout> | undefined;
+  private requestSlowTimer: ReturnType<typeof setTimeout> | undefined;
+  private hintedEditor: vscode.TextEditor | undefined;
+  private inlineHintDecorationType = vscode.window.createTextEditorDecorationType({
+    after: {
+      margin: '0 0 0 1.2em',
+      color: new vscode.ThemeColor('descriptionForeground'),
+      fontStyle: 'italic',
+    },
+  });
 
   constructor(private readonly providerManager: ProviderManager) {
     const config = vscode.workspace.getConfiguration('nopilot');
@@ -76,6 +107,9 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
           this.maxPrefixLines = cfg.get('inline.maxPrefixLines', 50);
           this.maxSuffixLines = cfg.get('inline.maxSuffixLines', 20);
         }
+      }),
+      this.providerManager.onDidChangeProvider(() => {
+        this.invalidateActiveRemoteRequestLifecycle();
       }),
       vscode.workspace.onDidChangeTextDocument((event) => {
         this.requestAssemblyCache.invalidateDocument(event.document.uri.toString());
@@ -100,18 +134,30 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     token: vscode.CancellationToken
   ): Promise<vscode.InlineCompletionItem[] | undefined> {
     if (!this.enabled) {
+      this.invalidateActiveRemoteRequestLifecycle();
       return undefined;
     }
 
     if (this.shouldSkipAutomaticRequestForCopilot(document.languageId, context.triggerKind)) {
+      this.invalidateActiveRemoteRequestLifecycle();
       return undefined;
+    }
+
+    const isRemoteOllama = this.resolveActiveOllamaRemoteMode();
+    const inlineOptimizationProfile = isRemoteOllama ? 'remote-ollama' : 'standard';
+    const isAutomaticTrigger =
+      context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic;
+    const shouldTrackRemoteAutomatic = isRemoteOllama && isAutomaticTrigger;
+    let requestId: number | undefined;
+    if (!shouldTrackRemoteAutomatic) {
+      requestId = this.invalidateActiveRemoteRequestLifecycle();
     }
 
     const currentLine = document.lineAt(position.line).text;
     const requestPolicy = getInlineRequestPolicy({
-      isAutomaticTrigger:
-        context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic,
+      isAutomaticTrigger,
       qualityProfile: this.qualityProfile,
+      inlineOptimizationProfile,
       lineText: currentLine,
       cursorCharacter: position.character,
     });
@@ -119,10 +165,14 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     const cacheScope = buildInlineCacheScope(
       this.providerManager.getActiveProviderId(),
       activeProvider.info.currentModel,
-      this.qualityProfile
+      this.qualityProfile,
+      inlineOptimizationProfile
     );
 
     if (requestPolicy.skip) {
+      if (shouldTrackRemoteAutomatic) {
+        this.invalidateActiveRemoteRequestLifecycle();
+      }
       return undefined;
     }
 
@@ -145,22 +195,31 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     const cacheKey = `${cacheScope}|${document.uri.toString()}|${document.getText(prefixRange)}|${document.getText(suffixRange)}`;
 
     if (this.cache.has(cacheKey)) {
+      if (shouldTrackRemoteAutomatic) {
+        this.invalidateActiveRemoteRequestLifecycle();
+      }
       const cachedText = this.cache.get(cacheKey)!;
       log(`Inline Cache Hit: ✅ ${cachedText.length} chars (instant)`);
       return [new vscode.InlineCompletionItem(cachedText, new vscode.Range(position, position))];
     }
 
     // Assign a unique ID to this request
-    const requestId = ++this.requestCounter;
+    requestId ??= ++this.requestCounter;
 
     // Debounce — wait for user to stop typing
     const wasCancelled = await this.debounce(token);
     if (wasCancelled || token.isCancellationRequested) {
+      if (shouldTrackRemoteAutomatic) {
+        this.clearRemoteRequestLifecycle(activeProvider.info, requestId, 'cancelled');
+      }
       return undefined;
     }
 
     // If a newer request came in during debounce, abandon this one
     if (requestId !== this.requestCounter) {
+      if (shouldTrackRemoteAutomatic) {
+        this.clearRemoteRequestLifecycle(activeProvider.info, requestId, 'cancelled');
+      }
       return undefined;
     }
 
@@ -170,14 +229,29 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       position,
       requestPolicy,
       context.triggerKind,
-      cacheScope
+      cacheScope,
+      inlineOptimizationProfile
     );
+
+    if (requestId !== this.requestCounter) {
+      if (shouldTrackRemoteAutomatic) {
+        this.clearRemoteRequestLifecycle(activeProvider.info, requestId, 'cancelled');
+      }
+      return undefined;
+    }
+
     const buildDurationMs = Date.now() - buildStart;
     log(
       `Inline request #${requestId}: ${request.filename} (${request.language}), line ${position.line + 1}, prefix ${request.prefix.length} chars, build ${buildDurationMs}ms`
     );
 
     try {
+      const shouldTrackRequestStatus =
+        shouldTrackRemoteAutomatic && request.mode === 'automatic';
+      if (shouldTrackRequestStatus) {
+        this.beginRemoteRequestLifecycle(requestId, activeProvider.info);
+      }
+
       // Use VS Code's own cancellation token directly
       // Don't add our own cancellation — let the API call finish
       const providerStart = Date.now();
@@ -189,16 +263,25 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
         log(
           `Inline #${requestId}: response arrived after ${providerDurationMs}ms but newer request exists, discarding`
         );
+        if (shouldTrackRequestStatus) {
+          this.clearRemoteRequestLifecycle(activeProvider.info, requestId, 'cancelled');
+        }
         return undefined;
       }
 
       if (token.isCancellationRequested) {
         log(`Inline #${requestId}: cancelled by VS Code`);
+        if (shouldTrackRequestStatus) {
+          this.clearRemoteRequestLifecycle(activeProvider.info, requestId, 'cancelled');
+        }
         return undefined;
       }
 
       if (!response.text) {
         log(`Inline #${requestId}: empty response`);
+        if (shouldTrackRequestStatus) {
+          this.clearRemoteRequestLifecycle(activeProvider.info, requestId);
+        }
         return undefined;
       }
 
@@ -211,7 +294,16 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
 
       if (!cleanedText) {
         log(`Inline #${requestId}: empty after cleanup`);
+        if (shouldTrackRequestStatus) {
+          this.clearRemoteRequestLifecycle(activeProvider.info, requestId);
+        }
         return undefined;
+      }
+
+      if (shouldTrackRequestStatus) {
+        this.ollamaRemoteTracker.recordSuccess(providerDurationMs);
+        this.clearSlowTimer();
+        this.scheduleRequestStatusClear(requestId);
       }
 
       log(
@@ -238,7 +330,14 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
         error.message.includes('abort') ||
         error.name === 'AbortError'
       )) {
+        if (shouldTrackRemoteAutomatic) {
+          this.clearRemoteRequestLifecycle(activeProvider.info, requestId, 'cancelled');
+        }
         return undefined;
+      }
+      if (shouldTrackRemoteAutomatic) {
+        this.ollamaRemoteTracker.recordFailure();
+        this.clearRemoteRequestLifecycle(activeProvider.info, requestId, 'connection-problem');
       }
       logError(`Inline #${requestId} failed`, error);
       return undefined;
@@ -250,7 +349,8 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     position: vscode.Position,
     requestPolicy: ReturnType<typeof getInlineRequestPolicy>,
     triggerKind: vscode.InlineCompletionTriggerKind,
-    cacheScope: string
+    cacheScope: string,
+    inlineOptimizationProfile: InlineOptimizationProfile
   ): Promise<CompletionRequest> {
     const prefixLineBudget = Math.min(
       this.maxPrefixLines,
@@ -301,6 +401,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       currentBlockContext,
       stopSequences,
       maxTokens: requestPolicy.maxTokens,
+      inlineOptimizationProfile,
     };
   }
 
@@ -316,12 +417,13 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       return '';
     }
 
+    const includeWorkspaceContext = requestPolicy.additionalContextScope === 'workspace';
     const contextKey = buildDerivedContextCacheKey({
       scope: cacheScope,
       documentUri: document.uri.toString(),
       documentVersion: document.version,
       language: document.languageId,
-      contextFlavor: requestPolicy.includeAdditionalContext ? 'full' : 'light',
+      contextFlavor: requestPolicy.additionalContextScope,
       prefixStartLine,
       referencedWords: searchWords,
     });
@@ -339,7 +441,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
           additionalSections.push(structureContext);
         }
 
-        if (requestPolicy.includeAdditionalContext) {
+        if (includeWorkspaceContext) {
           const similarFileSample = await this.resolveSimilarFileSampleContext(
             document,
             searchWords
@@ -350,7 +452,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
           }
         }
 
-        if (requestPolicy.includeAdditionalContext && searchWords.length > 0) {
+        if (includeWorkspaceContext && searchWords.length > 0) {
           const extension = this.getFileExtension(document.fileName);
           const searchPromises = searchWords.map((word) =>
             this.resolveReferencedSymbolSnippet(document, extension, word)
@@ -384,6 +486,193 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     );
 
     return cachedContext.value;
+  }
+
+  getRequestStatus(): InlineRequestStatus {
+    return this.requestStatus;
+  }
+
+  private getOllamaRemoteModeSetting(): OllamaRemoteMode {
+    return normalizeOllamaRemoteMode(
+      vscode.workspace.getConfiguration('nopilot.ollama').get('remoteMode', 'auto')
+    );
+  }
+
+  private getOllamaEndpoint(): string {
+    return vscode.workspace
+      .getConfiguration('nopilot.ollama')
+      .get('endpoint', 'http://localhost:11434');
+  }
+
+  private resolveActiveOllamaRemoteMode(): boolean {
+    if (this.providerManager.getActiveProviderId() !== 'ollama') {
+      return false;
+    }
+
+    const snapshot = this.ollamaRemoteTracker.snapshot();
+    return resolveOllamaRemoteMode({
+      setting: this.getOllamaRemoteModeSetting(),
+      endpoint: this.getOllamaEndpoint(),
+      recentDurationsMs: snapshot.recentDurationsMs,
+      recentFailureCount: snapshot.recentFailureCount,
+    }).enabled;
+  }
+
+  private setRequestStatus(status: InlineRequestStatus): void {
+    if (status.kind !== 'idle') {
+      this.clearRequestStatusClearTimer();
+    }
+    this.requestStatus = status;
+    this.requestStatusEmitter.fire(status);
+    this.updateEditorHint(status);
+  }
+
+  private invalidateActiveRemoteRequestLifecycle(requestId = ++this.requestCounter): number {
+    if (requestId > this.requestCounter) {
+      this.requestCounter = requestId;
+    }
+
+    this.clearSlowTimer();
+    this.clearRequestStatusClearTimer();
+    this.activeRequestStatusId = undefined;
+    this.setRequestStatus(createIdleInlineRequestStatus());
+    return requestId;
+  }
+
+  private beginRemoteRequestLifecycle(requestId: number, providerInfo: ProviderInfo): void {
+    if (requestId !== this.requestCounter) {
+      return;
+    }
+
+    this.activeRequestStatusId = requestId;
+    this.setRequestStatus({
+      kind: 'waiting',
+      providerId: providerInfo.id,
+      providerName: providerInfo.name,
+      model: providerInfo.currentModel,
+      message: 'Requesting from remote Ollama...',
+    });
+    this.scheduleSlowStatus(requestId);
+  }
+
+  private ownsRemoteRequestLifecycle(requestId: number): boolean {
+    return this.activeRequestStatusId === requestId;
+  }
+
+  private scheduleRequestStatusClear(requestId: number, delayMs = 900): void {
+    if (!this.ownsRemoteRequestLifecycle(requestId)) {
+      return;
+    }
+
+    this.clearRequestStatusClearTimer();
+
+    this.requestStatusClearTimer = setTimeout(() => {
+      if (!this.ownsRemoteRequestLifecycle(requestId)) {
+        return;
+      }
+
+      this.requestStatusClearTimer = undefined;
+      this.activeRequestStatusId = undefined;
+      this.setRequestStatus(createIdleInlineRequestStatus());
+    }, delayMs);
+  }
+
+  private clearRequestStatusClearTimer(): void {
+    if (this.requestStatusClearTimer) {
+      clearTimeout(this.requestStatusClearTimer);
+      this.requestStatusClearTimer = undefined;
+    }
+  }
+
+  private clearSlowTimer(): void {
+    if (this.requestSlowTimer) {
+      clearTimeout(this.requestSlowTimer);
+      this.requestSlowTimer = undefined;
+    }
+  }
+
+  private scheduleSlowStatus(requestId: number): void {
+    this.clearSlowTimer();
+    this.requestSlowTimer = setTimeout(() => {
+      this.requestSlowTimer = undefined;
+      if (this.ownsRemoteRequestLifecycle(requestId) && this.requestStatus.kind === 'waiting') {
+        this.setRequestStatus({
+          ...this.requestStatus,
+          kind: 'slow',
+          message: 'Slow response from model',
+        });
+      }
+    }, 1200);
+  }
+
+  private clearRemoteRequestLifecycle(
+    providerInfo: ProviderInfo,
+    requestId: number,
+    statusKind?: 'cancelled' | 'connection-problem',
+    force = false
+  ): void {
+    if (!force && !this.ownsRemoteRequestLifecycle(requestId)) {
+      return;
+    }
+
+    this.clearSlowTimer();
+
+    if (!statusKind) {
+      this.clearRequestStatusClearTimer();
+      this.activeRequestStatusId = undefined;
+      this.setRequestStatus(createIdleInlineRequestStatus());
+      return;
+    }
+
+    this.setRequestStatus({
+      kind: statusKind,
+      providerId: providerInfo.id,
+      providerName: providerInfo.name,
+      model: providerInfo.currentModel,
+    });
+    this.scheduleRequestStatusClear(requestId);
+  }
+
+  private updateEditorHint(status: InlineRequestStatus): void {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || status.kind === 'idle') {
+      this.clearEditorHint(editor);
+      return;
+    }
+
+    const message = getInlineRequestStatusMessage(status);
+    if (!message) {
+      this.clearEditorHint(editor);
+      return;
+    }
+
+    if (this.hintedEditor && this.hintedEditor !== editor) {
+      this.hintedEditor.setDecorations(this.inlineHintDecorationType, []);
+    }
+
+    const position = editor.selection.active;
+    const range = new vscode.Range(position, position);
+    editor.setDecorations(this.inlineHintDecorationType, [{
+      range,
+      renderOptions: {
+        after: {
+          contentText: ` ${message}`,
+        },
+      },
+    }]);
+    this.hintedEditor = editor;
+  }
+
+  private clearEditorHint(activeEditor = vscode.window.activeTextEditor): void {
+    if (this.hintedEditor) {
+      this.hintedEditor.setDecorations(this.inlineHintDecorationType, []);
+    }
+
+    if (activeEditor && activeEditor !== this.hintedEditor) {
+      activeEditor.setDecorations(this.inlineHintDecorationType, []);
+    }
+
+    this.hintedEditor = undefined;
   }
 
   private async resolveSimilarFileSampleContext(
@@ -724,6 +1013,11 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
+    this.clearSlowTimer();
+    this.clearRequestStatusClearTimer();
+    this.clearEditorHint();
+    this.inlineHintDecorationType.dispose();
+    this.requestStatusEmitter.dispose();
     this.disposables.forEach((d) => d.dispose());
   }
 }

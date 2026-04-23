@@ -184,6 +184,21 @@
           "default": "http://localhost:11434",
           "description": "Ollama server endpoint"
         },
+        "nopilot.ollama.remoteMode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "forced-on",
+            "forced-off"
+          ],
+          "enumDescriptions": [
+            "Automatically optimize inline suggestions when Ollama behaves like a remote endpoint.",
+            "Always use remote-optimized inline behavior for Ollama.",
+            "Never use remote-optimized inline behavior for Ollama."
+          ],
+          "default": "auto",
+          "description": "Remote Ollama optimization mode for inline suggestions"
+        },
         "nopilot.ollama.model": {
           "type": "string",
           "default": "codellama",
@@ -197,7 +212,7 @@
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "compile": "tsc -noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test .test-dist/packageManifest.test.js .test-dist/providers/modelSelection.test.js .test-dist/providers/directProviderModels.test.js .test-dist/providers/ollamaModels.test.js .test-dist/providers/prompts.test.js .test-dist/providers/inlineStrategies.test.js .test-dist/providers/providerCredentials.test.js .test-dist/features/inlineBlockContext.test.js .test-dist/features/inlineProjectContext.test.js .test-dist/features/inlineText.test.js .test-dist/features/inlineContextCache.test.js .test-dist/features/copilotDetection.test.js .test-dist/ui/statusBarPresentation.test.js .test-dist/ui/settingsPanelState.test.js .test-dist/ui/settingsWebview.test.js .test-dist/ui/settingsPanelActions.test.js .test-dist/services/gitSelection.test.js",
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/packageManifest.test.js .test-dist/providers/modelSelection.test.js .test-dist/providers/directProviderModels.test.js .test-dist/providers/ollamaModels.test.js .test-dist/providers/ollamaRemoteMode.test.js .test-dist/providers/prompts.test.js .test-dist/providers/inlineStrategies.test.js .test-dist/providers/providerCredentials.test.js .test-dist/features/inlineBlockContext.test.js .test-dist/features/inlineProjectContext.test.js .test-dist/features/inlineText.test.js .test-dist/features/inlineCompletionProvider.wiring.test.js .test-dist/features/inlineContextCache.test.js .test-dist/features/copilotDetection.test.js .test-dist/features/inlineRequestStatus.test.js .test-dist/ui/statusBarPresentation.test.js .test-dist/ui/settingsPanelState.test.js .test-dist/ui/settingsWebview.test.js .test-dist/ui/settingsPanelActions.test.js .test-dist/services/gitSelection.test.js",
     "lint": "eslint src"
   },
   "devDependencies": {

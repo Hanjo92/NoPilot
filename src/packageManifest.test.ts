@@ -5,6 +5,15 @@ import path from 'node:path';
 
 interface ExtensionManifest {
   activationEvents?: string[];
+  contributes?: {
+    configuration?: {
+      properties?: Record<string, {
+        type?: string;
+        enum?: string[];
+        default?: string;
+      }>;
+    };
+  };
   galleryBanner?: {
     color?: string;
   };
@@ -30,4 +39,13 @@ test('manifest includes marketplace icon metadata', () => {
   assert.equal(manifest.icon, 'media/icon.png');
   assert.equal(manifest.galleryBanner?.color, '#2563eb');
   assert.ok(existsSync(path.resolve(process.cwd(), manifest.icon ?? '')));
+});
+
+test('manifest exposes Ollama remote mode setting', () => {
+  const manifest = readManifest();
+  const setting = manifest.contributes?.configuration?.properties?.['nopilot.ollama.remoteMode'];
+
+  assert.equal(setting?.type, 'string');
+  assert.equal(setting?.default, 'auto');
+  assert.deepEqual(setting?.enum, ['auto', 'forced-on', 'forced-off']);
 });

@@ -99,6 +99,10 @@ export class SettingsPanel {
           return ollamaConfig.get('endpoint', defaultValue);
         }
 
+        if (key === 'ollama.remoteMode') {
+          return ollamaConfig.get('remoteMode', defaultValue);
+        }
+
         return config.get(key, defaultValue);
       },
     });
@@ -125,10 +129,11 @@ export class SettingsPanel {
         setApiKey: (providerId, key) => this.authService.setApiKey(providerId, key),
         removeApiKey: (providerId) => this.authService.removeApiKey(providerId),
         updateSetting: async (key, value) => {
-          if (key === 'ollama.endpoint') {
+          if (key === 'ollama.endpoint' || key === 'ollama.remoteMode') {
             const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
+            const settingName = key === 'ollama.endpoint' ? 'endpoint' : 'remoteMode';
             await ollamaConfig.update(
-              'endpoint',
+              settingName,
               String(value),
               vscode.ConfigurationTarget.Global
             );
