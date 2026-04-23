@@ -88,15 +88,19 @@ export class SettingsPanel {
 
   /** Send current state to the webview */
   private async sendStateToWebview(): Promise<void> {
-    const config = vscode.workspace.getConfiguration('nopilot');
-    const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
-    const state = await buildSettingsWebviewState({
+      const config = vscode.workspace.getConfiguration('nopilot');
+      const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
+      const state = await buildSettingsWebviewState({
       getProvider: (providerId) => this.providerManager.getProvider(providerId),
       getAllProviderInfos: () => this.providerManager.getAllProviderInfos(),
       getActiveProviderId: () => this.providerManager.getActiveProviderId(),
       getSetting: <T>(key: string, defaultValue: T) => {
         if (key === 'ollama.endpoint') {
           return ollamaConfig.get('endpoint', defaultValue);
+        }
+
+        if (key === 'ollama.remoteMode') {
+          return ollamaConfig.get('remoteMode', defaultValue);
         }
 
         return config.get(key, defaultValue);
@@ -125,10 +129,11 @@ export class SettingsPanel {
         setApiKey: (providerId, key) => this.authService.setApiKey(providerId, key),
         removeApiKey: (providerId) => this.authService.removeApiKey(providerId),
         updateSetting: async (key, value) => {
-          if (key === 'ollama.endpoint') {
+          if (key === 'ollama.endpoint' || key === 'ollama.remoteMode') {
             const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
+            const settingName = key === 'ollama.endpoint' ? 'endpoint' : 'remoteMode';
             await ollamaConfig.update(
-              'endpoint',
+              settingName,
               String(value),
               vscode.ConfigurationTarget.Global
             );

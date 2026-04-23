@@ -119,6 +119,12 @@ const INLINE_QUALITY_PROFILE_OPTIONS = [
   { value: 'rich', label: 'Rich' },
 ];
 
+const OLLAMA_REMOTE_MODE_OPTIONS = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'forced-on', label: 'Forced On' },
+  { value: 'forced-off', label: 'Forced Off' },
+];
+
 const INLINE_SETTING_DEFINITIONS = [
   {
     label: 'Enabled',
@@ -267,6 +273,11 @@ function getOllamaSettingsMarkup(state) {
       label: 'Endpoint',
       description: 'HTTP endpoint for your local or remote Ollama server',
       control: ollamaEndpointControl(endpointValue, buttonLabel),
+    },
+    {
+      label: 'Remote Mode',
+      description: 'Optimize inline suggestions for remote Ollama latency',
+      control: selectInput('ollama.remoteMode', settings.ollamaRemoteMode, OLLAMA_REMOTE_MODE_OPTIONS),
     },
   ]);
 }

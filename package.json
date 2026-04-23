@@ -184,6 +184,21 @@
           "default": "http://localhost:11434",
           "description": "Ollama server endpoint"
         },
+        "nopilot.ollama.remoteMode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "forced-on",
+            "forced-off"
+          ],
+          "enumDescriptions": [
+            "Automatically optimize inline suggestions when Ollama behaves like a remote endpoint.",
+            "Always use remote-optimized inline behavior for Ollama.",
+            "Never use remote-optimized inline behavior for Ollama."
+          ],
+          "default": "auto",
+          "description": "Remote Ollama optimization mode for inline suggestions"
+        },
         "nopilot.ollama.model": {
           "type": "string",
           "default": "codellama",

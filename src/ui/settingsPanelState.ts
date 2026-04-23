@@ -30,6 +30,7 @@ export async function buildSettingsWebviewState(
       maxPrefixLines: source.getSetting('inline.maxPrefixLines', 50),
       maxSuffixLines: source.getSetting('inline.maxSuffixLines', 20),
       ollamaEndpoint: source.getSetting('ollama.endpoint', 'http://localhost:11434'),
+      ollamaRemoteMode: source.getSetting('ollama.remoteMode', 'auto'),
       commitLanguage: source.getSetting('commitMessage.language', 'en'),
       commitFormat: source.getSetting('commitMessage.format', 'conventional'),
     },

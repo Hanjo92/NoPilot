@@ -78,6 +78,9 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(script, /function getOllamaProvider/);
   assert.match(script, /function getOllamaStatusMarkup/);
   assert.match(script, /function getOllamaModelPreviewMarkup/);
+  assert.match(script, /OLLAMA_REMOTE_MODE_OPTIONS/);
+  assert.match(script, /ollama\.remoteMode/);
+  assert.match(script, /Remote Mode/);
   assert.match(script, /let ollamaRefreshPending = false/);
   assert.match(script, /let pendingOllamaEndpoint = ''/);
   assert.match(script, /Refreshing\.\.\./);

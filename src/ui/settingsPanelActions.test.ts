@@ -169,6 +169,21 @@ test('handleSettingsPanelMessage refreshes Ollama after updating its endpoint', 
   assert.equal(calls.sendState, 1);
 });
 
+test('handleSettingsPanelMessage updates Ollama remote mode without refreshing models', async () => {
+  const { provider, calls, actions } = createActions();
+
+  await handleSettingsPanelMessage(
+    { command: 'updateSetting', key: 'ollama.remoteMode', value: 'forced-on' },
+    actions
+  );
+
+  assert.deepEqual(calls.updateSettings, [
+    { key: 'ollama.remoteMode', value: 'forced-on' },
+  ]);
+  assert.equal(provider.refreshCalls, 0);
+  assert.equal(calls.sendState, 1);
+});
+
 test('handleSettingsPanelMessage saves the typed endpoint before refreshing Ollama models', async () => {
   const { provider, calls, actions } = createActions();
 
