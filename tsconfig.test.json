@@ -15,6 +15,8 @@
     "src/providers/directProviderModels.test.ts",
     "src/providers/ollamaModels.ts",
     "src/providers/ollamaModels.test.ts",
+    "src/providers/ollamaRemoteMode.test.ts",
+    "src/providers/ollamaRemoteMode.ts",
     "src/providers/prompts.ts",
     "src/providers/prompts.test.ts",
     "src/providers/inlineStrategies.ts",
