@@ -108,6 +108,9 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
           this.maxSuffixLines = cfg.get('inline.maxSuffixLines', 20);
         }
       }),
+      this.providerManager.onDidChangeProvider(() => {
+        this.invalidateActiveRemoteRequestLifecycle();
+      }),
       vscode.workspace.onDidChangeTextDocument((event) => {
         this.requestAssemblyCache.invalidateDocument(event.document.uri.toString());
         this.requestAssemblyCache.clearSymbolLookups();
@@ -131,10 +134,12 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     token: vscode.CancellationToken
   ): Promise<vscode.InlineCompletionItem[] | undefined> {
     if (!this.enabled) {
+      this.invalidateActiveRemoteRequestLifecycle();
       return undefined;
     }
 
     if (this.shouldSkipAutomaticRequestForCopilot(document.languageId, context.triggerKind)) {
+      this.invalidateActiveRemoteRequestLifecycle();
       return undefined;
     }
 
@@ -143,6 +148,11 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     const isAutomaticTrigger =
       context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic;
     const shouldTrackRemoteAutomatic = isRemoteOllama && isAutomaticTrigger;
+    let requestId: number | undefined;
+    if (!shouldTrackRemoteAutomatic) {
+      requestId = this.invalidateActiveRemoteRequestLifecycle();
+    }
+
     const currentLine = document.lineAt(position.line).text;
     const requestPolicy = getInlineRequestPolicy({
       isAutomaticTrigger,
@@ -161,8 +171,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
 
     if (requestPolicy.skip) {
       if (shouldTrackRemoteAutomatic) {
-        const invalidationRequestId = ++this.requestCounter;
-        this.clearRemoteRequestLifecycle(activeProvider.info, invalidationRequestId, undefined, true);
+        this.invalidateActiveRemoteRequestLifecycle();
       }
       return undefined;
     }
@@ -187,8 +196,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
 
     if (this.cache.has(cacheKey)) {
       if (shouldTrackRemoteAutomatic) {
-        const invalidationRequestId = ++this.requestCounter;
-        this.clearRemoteRequestLifecycle(activeProvider.info, invalidationRequestId, undefined, true);
+        this.invalidateActiveRemoteRequestLifecycle();
       }
       const cachedText = this.cache.get(cacheKey)!;
       log(`Inline Cache Hit: ✅ ${cachedText.length} chars (instant)`);
@@ -196,7 +204,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     }
 
     // Assign a unique ID to this request
-    const requestId = ++this.requestCounter;
+    requestId ??= ++this.requestCounter;
 
     // Debounce — wait for user to stop typing
     const wasCancelled = await this.debounce(token);
@@ -517,6 +525,18 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     this.requestStatus = status;
     this.requestStatusEmitter.fire(status);
     this.updateEditorHint(status);
+  }
+
+  private invalidateActiveRemoteRequestLifecycle(requestId = ++this.requestCounter): number {
+    if (requestId > this.requestCounter) {
+      this.requestCounter = requestId;
+    }
+
+    this.clearSlowTimer();
+    this.clearRequestStatusClearTimer();
+    this.activeRequestStatusId = undefined;
+    this.setRequestStatus(createIdleInlineRequestStatus());
+    return requestId;
   }
 
   private beginRemoteRequestLifecycle(requestId: number, providerInfo: ProviderInfo): void {

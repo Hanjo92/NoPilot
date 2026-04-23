@@ -133,11 +133,45 @@ test('inline provider clears remote lifecycle on skip and cache-hit exits', () =
 
   assert.match(
     source,
-    /if \(requestPolicy\.skip\) \{[\s\S]*?const invalidationRequestId = \+\+this\.requestCounter;[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, invalidationRequestId, undefined, true\);[\s\S]*?return undefined;[\s\S]*?\}/
+    /if \(requestPolicy\.skip\) \{[\s\S]*?this\.invalidateActiveRemoteRequestLifecycle\(\);[\s\S]*?return undefined;[\s\S]*?\}/
   );
   assert.match(
     source,
-    /if \(this\.cache\.has\(cacheKey\)\) \{[\s\S]*?const invalidationRequestId = \+\+this\.requestCounter;[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, invalidationRequestId, undefined, true\);[\s\S]*?return \[new vscode\.InlineCompletionItem/
+    /if \(this\.cache\.has\(cacheKey\)\) \{[\s\S]*?this\.invalidateActiveRemoteRequestLifecycle\(\);[\s\S]*?return \[new vscode\.InlineCompletionItem/
+  );
+});
+
+test('inline provider invalidates stale remote lifecycle for newer non-tracked invocations', () => {
+  const source = readSource('src/features/inlineCompletionProvider.ts');
+
+  assert.match(
+    source,
+    /private invalidateActiveRemoteRequestLifecycle\(requestId = \+\+this\.requestCounter\): number \{[\s\S]*?this\.clearSlowTimer\(\);[\s\S]*?this\.clearRequestStatusClearTimer\(\);[\s\S]*?this\.activeRequestStatusId = undefined;[\s\S]*?this\.setRequestStatus\(createIdleInlineRequestStatus\(\)\);[\s\S]*?return requestId;[\s\S]*?\}/
+  );
+  assert.match(
+    source,
+    /if \(!this\.enabled\) \{[\s\S]*?this\.invalidateActiveRemoteRequestLifecycle\(\);[\s\S]*?return undefined;[\s\S]*?\}/
+  );
+  assert.match(
+    source,
+    /if \(this\.shouldSkipAutomaticRequestForCopilot\(document\.languageId, context\.triggerKind\)\) \{[\s\S]*?this\.invalidateActiveRemoteRequestLifecycle\(\);[\s\S]*?return undefined;[\s\S]*?\}/
+  );
+  assertAppearsInOrder(source, [
+    'const shouldTrackRemoteAutomatic = isRemoteOllama && isAutomaticTrigger;',
+    'let requestId: number | undefined;',
+    'if (!shouldTrackRemoteAutomatic) {',
+    'requestId = this.invalidateActiveRemoteRequestLifecycle();',
+    'const currentLine = document.lineAt(position.line).text;',
+  ]);
+  assert.match(source, /requestId \?\?= \+\+this\.requestCounter;/);
+});
+
+test('inline provider invalidates stale remote lifecycle on provider changes', () => {
+  const source = readSource('src/features/inlineCompletionProvider.ts');
+
+  assert.match(
+    source,
+    /this\.providerManager\.onDidChangeProvider\(\(\) => \{[\s\S]*?this\.invalidateActiveRemoteRequestLifecycle\(\);[\s\S]*?\}\)/
   );
 });
 

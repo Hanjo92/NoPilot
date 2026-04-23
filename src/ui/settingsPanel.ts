@@ -88,9 +88,9 @@ export class SettingsPanel {
 
   /** Send current state to the webview */
   private async sendStateToWebview(): Promise<void> {
-      const config = vscode.workspace.getConfiguration('nopilot');
-      const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
-      const state = await buildSettingsWebviewState({
+    const config = vscode.workspace.getConfiguration('nopilot');
+    const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
+    const state = await buildSettingsWebviewState({
       getProvider: (providerId) => this.providerManager.getProvider(providerId),
       getAllProviderInfos: () => this.providerManager.getAllProviderInfos(),
       getActiveProviderId: () => this.providerManager.getActiveProviderId(),
