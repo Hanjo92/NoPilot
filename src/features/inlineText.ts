@@ -1,4 +1,9 @@
-import type { InlineQualityProfile } from '../types';
+import type {
+  InlineOptimizationProfile,
+  InlineQualityProfile,
+} from '../types';
+
+export type AdditionalContextScope = 'none' | 'file' | 'workspace';
 
 export function stripMarkdownCodeFences(text: string): string {
   let cleaned = text;
@@ -20,6 +25,7 @@ export function stripMarkdownCodeFences(text: string): string {
 export interface InlineRequestPolicy {
   skip: boolean;
   includeAdditionalContext: boolean;
+  additionalContextScope: AdditionalContextScope;
   maxTokens: number;
   maxPrefixLines?: number;
   maxSuffixLines?: number;
@@ -28,6 +34,7 @@ export interface InlineRequestPolicy {
 interface InlineRequestPolicyInput {
   isAutomaticTrigger: boolean;
   qualityProfile?: InlineQualityProfile;
+  inlineOptimizationProfile?: InlineOptimizationProfile;
   lineText: string;
   cursorCharacter: number;
 }
@@ -72,11 +79,24 @@ function normalizeInlineQualityProfile(
 
 function buildAutomaticInlinePolicy(
   profile: AutomaticInlineProfile,
-  skip: boolean
+  skip: boolean,
+  inlineOptimizationProfile: InlineOptimizationProfile = 'standard'
 ): InlineRequestPolicy {
+  if (inlineOptimizationProfile === 'remote-ollama') {
+    return {
+      skip,
+      includeAdditionalContext: true,
+      additionalContextScope: 'file',
+      maxTokens: 64,
+      maxPrefixLines: 30,
+      maxSuffixLines: 10,
+    };
+  }
+
   return {
     skip,
     includeAdditionalContext: profile.includeAdditionalContext,
+    additionalContextScope: profile.includeAdditionalContext ? 'workspace' : 'none',
     maxTokens: profile.maxTokens,
     maxPrefixLines: undefined,
     maxSuffixLines: undefined,
@@ -187,6 +207,7 @@ export function getInlineRequestPolicy(
     return {
       skip: false,
       includeAdditionalContext: true,
+      additionalContextScope: 'workspace',
       maxTokens: EXPLICIT_INLINE_MAX_TOKENS,
       maxPrefixLines: undefined,
       maxSuffixLines: undefined,
@@ -204,23 +225,23 @@ export function getInlineRequestPolicy(
     input.qualityProfile !== 'fast' && isMemberAccessChainingState(trailingToken);
 
   if (lineContext.insideComment || lineContext.insideString) {
-    return buildAutomaticInlinePolicy(profile, true);
+    return buildAutomaticInlinePolicy(profile, true, input.inlineOptimizationProfile);
   }
 
   if (isImportStatementPrefix(leftStr)) {
-    return buildAutomaticInlinePolicy(profile, true);
+    return buildAutomaticInlinePolicy(profile, true, input.inlineOptimizationProfile);
   }
 
   if (isLowSignalChainingState(trailingToken) && !allowMemberAccessChaining) {
-    return buildAutomaticInlinePolicy(profile, true);
+    return buildAutomaticInlinePolicy(profile, true, input.inlineOptimizationProfile);
   }
 
   if (rightStr.length > 0 && /^[a-zA-Z0-9_]/.test(rightStr)) {
-    return buildAutomaticInlinePolicy(profile, true);
+    return buildAutomaticInlinePolicy(profile, true, input.inlineOptimizationProfile);
   }
 
   if (leftStr.trim().length > 0 && /[ \t]{2,}$/.test(leftStr)) {
-    return buildAutomaticInlinePolicy(profile, true);
+    return buildAutomaticInlinePolicy(profile, true, input.inlineOptimizationProfile);
   }
 
   if (input.lineText.trim().length === 0) {
@@ -229,22 +250,23 @@ export function getInlineRequestPolicy(
       leftStr.length > 0 &&
       leftStr.length <= profile.maxBlankLineIndent;
 
-    return buildAutomaticInlinePolicy(profile, !allowIndentedBlankLine);
+    return buildAutomaticInlinePolicy(profile, !allowIndentedBlankLine, input.inlineOptimizationProfile);
   }
 
   if (leftStr.trim().length === 0 && leftStr.length > profile.maxBlankLineIndent) {
-    return buildAutomaticInlinePolicy(profile, true);
+    return buildAutomaticInlinePolicy(profile, true, input.inlineOptimizationProfile);
   }
 
-  return buildAutomaticInlinePolicy(profile, false);
+  return buildAutomaticInlinePolicy(profile, false, input.inlineOptimizationProfile);
 }
 
 export function buildInlineCacheScope(
   providerId: string,
   model: string,
-  qualityProfile: InlineQualityProfile
+  qualityProfile: InlineQualityProfile,
+  inlineOptimizationProfile: InlineOptimizationProfile = 'standard'
 ): string {
-  return `${providerId}::${model || 'auto'}::${normalizeInlineQualityProfile(qualityProfile)}`;
+  return `${providerId}::${model || 'auto'}::${normalizeInlineQualityProfile(qualityProfile)}::${inlineOptimizationProfile}`;
 }
 
 export function extractReferencedWords(prefix: string): string[] {

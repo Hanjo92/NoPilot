@@ -13,6 +13,7 @@ export interface ResolvedInlineCompletionConfig {
 const DEFAULT_INLINE_MAX_TOKENS = 256;
 const VSCODE_LM_AUTOMATIC_MAX_TOKENS = 128;
 const OLLAMA_AUTOMATIC_MAX_TOKENS = 160;
+const REMOTE_OLLAMA_AUTOMATIC_MAX_TOKENS = 96;
 
 export function getInlineStrategyId(
   providerId: ProviderId
@@ -108,10 +109,15 @@ export function buildInlineCompletionConfig(
         stopSequences: undefined,
       };
     case 'ollama':
+      const ollamaAutomaticCap =
+        request.inlineOptimizationProfile === 'remote-ollama'
+          ? REMOTE_OLLAMA_AUTOMATIC_MAX_TOKENS
+          : OLLAMA_AUTOMATIC_MAX_TOKENS;
+
       return {
         strategyId,
         prompt: buildOllamaInlinePrompt(request),
-        maxTokens: resolveAutomaticCap(request, OLLAMA_AUTOMATIC_MAX_TOKENS),
+        maxTokens: resolveAutomaticCap(request, ollamaAutomaticCap),
         stopSequences: request.stopSequences,
       };
     case 'chat':
