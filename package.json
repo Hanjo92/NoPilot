@@ -1,8 +1,8 @@
 {
   "name": "nopilot",
   "displayName": "NoPilot",
-  "description": "Replace GitHub Copilot with your preferred AI provider — Claude, GPT, Gemini, Ollama, and more.",
-  "version": "0.1.0",
+  "description": "Use Claude, GPT, Gemini, Ollama, or VS Code LM for inline completions, inline edits, and AI commit messages.",
+  "version": "0.2.0",
   "publisher": "hanjo92",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -33,7 +33,11 @@
     "openai",
     "gemini",
     "ollama",
+    "remote ollama",
+    "local ai",
+    "vscode lm",
     "inline completion",
+    "inline chat",
     "code completion",
     "commit message"
   ],

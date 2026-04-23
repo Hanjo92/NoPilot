@@ -42,7 +42,7 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(body, /id="inlineSettings"/);
   assert.match(body, /id="ollamaSettings"/);
   assert.match(body, /id="commitSettings"/);
-  assert.match(body, /NoPilot v0\.1\.0/);
+  assert.match(body, /NoPilot v0\.2\.0/);
   assert.match(body, /best-effort/);
   assert.match(body, /quota exhaustion or sign-in expiry/);
 
