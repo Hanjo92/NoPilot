@@ -78,8 +78,8 @@ test('inline provider exposes remote automatic request lifecycle status', () => 
   assert.match(source, /this\.scheduleSlowStatus\(requestId\);/);
   assert.match(source, /this\.ollamaRemoteTracker\.recordSuccess\(providerDurationMs\);/);
   assert.match(source, /this\.ollamaRemoteTracker\.recordFailure\(\);/);
-  assert.match(source, /clearRemoteRequestLifecycle\(activeProvider\.info, 'cancelled'\)/);
-  assert.match(source, /clearRemoteRequestLifecycle\(activeProvider\.info, 'connection-problem'\)/);
+  assert.match(source, /clearRemoteRequestLifecycle\(activeProvider\.info, requestId, 'cancelled'\)/);
+  assert.match(source, /clearRemoteRequestLifecycle\(activeProvider\.info, requestId, 'connection-problem'\)/);
 });
 
 test('inline provider prevents old clear timers from erasing newer request status', () => {
@@ -92,7 +92,7 @@ test('inline provider prevents old clear timers from erasing newer request statu
   );
   assert.match(
     source,
-    /private scheduleRequestStatusClear\(delayMs = 900\): void \{[\s\S]*?this\.clearRequestStatusClearTimer\(\);/
+    /private scheduleRequestStatusClear\(requestId: number, delayMs = 900\): void \{[\s\S]*?if \(!this\.ownsRemoteRequestLifecycle\(requestId\)\) \{[\s\S]*?return;[\s\S]*?\}[\s\S]*?this\.clearRequestStatusClearTimer\(\);/
   );
 });
 
@@ -116,11 +116,11 @@ test('inline provider clears remote lifecycle on skip and cache-hit exits', () =
 
   assert.match(
     source,
-    /if \(requestPolicy\.skip\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info\);[\s\S]*?return undefined;[\s\S]*?\}/
+    /if \(requestPolicy\.skip\) \{[\s\S]*?const invalidationRequestId = \+\+this\.requestCounter;[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, invalidationRequestId, undefined, true\);[\s\S]*?return undefined;[\s\S]*?\}/
   );
   assert.match(
     source,
-    /if \(this\.cache\.has\(cacheKey\)\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info\);[\s\S]*?return \[new vscode\.InlineCompletionItem/
+    /if \(this\.cache\.has\(cacheKey\)\) \{[\s\S]*?const invalidationRequestId = \+\+this\.requestCounter;[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, invalidationRequestId, undefined, true\);[\s\S]*?return \[new vscode\.InlineCompletionItem/
   );
 });
 
@@ -129,19 +129,50 @@ test('inline provider clears slow timer on tracked cancellation and empty-result
 
   assert.match(
     source,
-    /if \(wasCancelled \|\| token\.isCancellationRequested\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, 'cancelled'\);[\s\S]*?return undefined;[\s\S]*?\}/
+    /if \(wasCancelled \|\| token\.isCancellationRequested\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, requestId, 'cancelled'\);[\s\S]*?return undefined;[\s\S]*?\}/
   );
   assert.match(
     source,
-    /if \(token\.isCancellationRequested\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, 'cancelled'\);[\s\S]*?return undefined;[\s\S]*?\}/
+    /if \(token\.isCancellationRequested\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, requestId, 'cancelled'\);[\s\S]*?return undefined;[\s\S]*?\}/
   );
   assert.match(
     source,
-    /if \(!response\.text\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info\);[\s\S]*?return undefined;[\s\S]*?\}/
+    /if \(!response\.text\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, requestId\);[\s\S]*?return undefined;[\s\S]*?\}/
   );
   assert.match(
     source,
-    /if \(!cleanedText\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info\);[\s\S]*?return undefined;[\s\S]*?\}/
+    /if \(!cleanedText\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, requestId\);[\s\S]*?return undefined;[\s\S]*?\}/
+  );
+});
+
+test('inline provider scopes remote lifecycle cleanup to the owning request id', () => {
+  const source = readSource('src/features/inlineCompletionProvider.ts');
+
+  assert.match(source, /private activeRequestStatusId: number \| undefined;/);
+  assert.match(
+    source,
+    /private beginRemoteRequestLifecycle\([\s\S]*?requestId: number,[\s\S]*?\): void \{[\s\S]*?this\.activeRequestStatusId = requestId;[\s\S]*?this\.setRequestStatus\(\{[\s\S]*?kind: 'waiting'/
+  );
+  assert.match(
+    source,
+    /private ownsRemoteRequestLifecycle\(requestId: number\): boolean \{[\s\S]*?return this\.activeRequestStatusId === requestId;[\s\S]*?\}/
+  );
+  assert.match(
+    source,
+    /private clearRemoteRequestLifecycle\([\s\S]*?requestId: number,[\s\S]*?\): void \{[\s\S]*?if \(!force && !this\.ownsRemoteRequestLifecycle\(requestId\)\) \{[\s\S]*?return;[\s\S]*?\}/
+  );
+  assert.match(
+    source,
+    /private scheduleRequestStatusClear\(requestId: number, delayMs = 900\): void \{[\s\S]*?if \(!this\.ownsRemoteRequestLifecycle\(requestId\)\) \{[\s\S]*?return;[\s\S]*?\}/
+  );
+  assert.match(
+    source,
+    /this\.requestStatusClearTimer = setTimeout\(\(\) => \{[\s\S]*?if \(!this\.ownsRemoteRequestLifecycle\(requestId\)\) \{[\s\S]*?return;[\s\S]*?\}/
+  );
+  assert.match(source, /this\.scheduleRequestStatusClear\(requestId\);/);
+  assert.match(
+    source,
+    /if \(this\.ownsRemoteRequestLifecycle\(requestId\) && this\.requestStatus\.kind === 'waiting'\)/
   );
 });
 
