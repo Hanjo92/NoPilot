@@ -108,7 +108,7 @@ export function buildInlineCompletionConfig(
         maxTokens: resolveAutomaticCap(request, VSCODE_LM_AUTOMATIC_MAX_TOKENS),
         stopSequences: undefined,
       };
-    case 'ollama':
+    case 'ollama': {
       const ollamaAutomaticCap =
         request.inlineOptimizationProfile === 'remote-ollama'
           ? REMOTE_OLLAMA_AUTOMATIC_MAX_TOKENS
@@ -120,6 +120,7 @@ export function buildInlineCompletionConfig(
         maxTokens: resolveAutomaticCap(request, ollamaAutomaticCap),
         stopSequences: request.stopSequences,
       };
+    }
     case 'chat':
     default:
       return {
