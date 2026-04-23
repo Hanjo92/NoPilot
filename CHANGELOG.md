@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.2.0] - 2026-04-23
+
+### Added
+
+- Remote Ollama optimization mode with Auto, Forced On, and Forced Off controls.
+- Marketplace and README guidance for provider setup, remote Ollama endpoints, and data handling.
+- Inline request status feedback for remote or slow Ollama suggestions.
+
+### Changed
+
+- Automatic remote Ollama inline suggestions now use leaner file-scoped context and smaller token budgets.
+- Inline cache scopes now separate standard and remote-optimized request profiles.
+- Settings UI now surfaces Ollama endpoint refresh, remote mode, and provider model state more clearly.
+
 ## [0.1.0] - 2026-04-11
 
 ### Added

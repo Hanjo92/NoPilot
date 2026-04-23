@@ -1,59 +1,78 @@
-# NoPilot 🚀
+# NoPilot
 
-> **A Next-Generation, Multi-Provider AI Coding Assistant for VS Code**
+> A multi-provider AI coding assistant for VS Code. Keep the Copilot-style workflow, but choose the model and endpoint that fit your project.
 
-NoPilot is a powerful, customizable alternative to GitHub Copilot. It brings high-performance, context-aware AI completion and inline code editing right into your IDE without tying you to a single subscription or model. Bring your own keys and start coding!
+NoPilot brings inline code completion, selection-based inline edits, and AI commit messages into VS Code without locking you to a single subscription or provider. Use VS Code Language Models, Claude, GPT, Gemini, or Ollama, including remote Ollama endpoints on your network.
 
 ![NoPilot Shield](https://img.shields.io/badge/VS_Code-Extension-blue.svg)
-![AI Models](https://img.shields.io/badge/Models-OpenAI_%7C_Anthropic_%7C_Gemini_%7C_Ollama-success.svg)
+![AI Models](https://img.shields.io/badge/Models-VS_Code_LM_%7C_Claude_%7C_GPT_%7C_Gemini_%7C_Ollama-success.svg)
 
-## ✨ Core Features
+## Highlights
 
-* 🌐 **Multi-Provider Support**: Seamlessly switch between OpenAI (GPT-4o), Anthropic (Claude 3.5 Sonnet), Google Gemini (1.5 / 2.0 Flash), local Ollama models, and native VS Code Language Models.
-* ⚡ **Zero-Latency LRU Cache**: Type, delete, and retype securely. Our aggressive local memory cache brings up ghost text instantly (0ms) if you encounter identical contexts, avoiding repeating expensive API calls.
-* 🧠 **Deep LSP Semantic Context**: NoPilot doesn't just guess filenames. It leverages VS Code's `WorkspaceSymbolProvider` to deeply understand your project architecture. It fetches exact class, struct, and interface definitions across the workspace under the hood to ensure zero-hallucination code generation.
-* 🎯 **Dynamic Single/Multi-Line Generation**: Analyzes your cursor position instantly to determine whether you need a single variable (stopping at `\n`), or a full function implementation, preventing bloated, unnecessary code generation and broken brackets.
-* 💬 **Interactive Inline Chat (`Ctrl+I`)**: Select a block of code, press `Ctrl+I`, and instruct the AI (e.g., *"Refactor this to be async"*). NoPilot will analyze the surroundings and intelligently replace your code in real-time.
-* 📝 **Automated Git Commits**: Generates meaningful conventional commit messages locally by analyzing your diffs on the fly.
+- **Choose your provider**: Switch between VS Code LM, Anthropic, OpenAI, Gemini, and Ollama from the NoPilot settings panel.
+- **Inline completions that fit your latency**: Pick Fast, Balanced, or Rich quality profiles for automatic ghost text.
+- **Remote Ollama friendly**: Auto-detect remote or slow Ollama behavior, trim automatic inline requests, and show request status when the endpoint is slow or unreachable.
+- **Context-aware suggestions**: Reuse local cache entries, current-file context, nearby structure, and workspace symbols when the selected profile allows it.
+- **Inline Chat**: Select code, press `Ctrl+I` or `Cmd+I`, and ask NoPilot to edit or replace it in place.
+- **AI commit messages**: Generate conventional or simple commit messages from your Git diff.
+- **Local-first secrets**: Provider keys are stored through VS Code SecretStorage, not plain settings JSON.
 
-## 🚀 Getting Started
+## Getting Started
 
 1. Install the extension.
 2. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and type **`NoPilot: Open Settings`**.
-3. Choose your preferred AI Provider and enter your API Key safely (stored in VS Code's encrypted SecretStorage).
-4. Start typing!
+3. Choose a provider:
+   - **VS Code LM**: Uses language models already available through VS Code.
+   - **Anthropic, OpenAI, Gemini**: Set your API key, then choose a model.
+   - **Ollama**: Set an endpoint such as `http://localhost:11434` or a remote server URL, refresh models, then choose a completion model.
+4. Start typing. Accept inline suggestions with `Tab`.
 
-## ⚙️ Keybindings
+## Keybindings
 
-* `Tab`: Accept inline suggestions.
-* `Ctrl + I` (Windows/Linux) / `Cmd + I` (Mac): Open Inline Chat for the current selection.
-* (From Source Control View): Click the Magic Wand icon `✨` to auto-generate a commit message.
+- `Tab`: Accept inline suggestions.
+- `Ctrl+I` on Windows/Linux or `Cmd+I` on macOS: Open Inline Chat for the current selection.
+- Source Control magic wand: Generate a commit message from the current Git diff.
 
-## 🛠 Extension Settings
+## Important Settings
 
 You can customize NoPilot's behavior fully via **VS Code Settings > Extensions > NoPilot**:
 
-* `nopilot.inline.enabled`: Turn ghost text auto-completions on or off.
-* `nopilot.inline.qualityProfile`: Pick how aggressive automatic inline suggestions should be.
-* `fast`: Small context windows, lower token budgets, and more conservative auto-triggering for lower latency.
-* `balanced`: Default mode with the current speed/quality tradeoff.
-* `rich`: Larger context windows, higher token budgets, and richer automatic suggestions, including indented blank lines.
-* `nopilot.inline.debounceMs`: Milliseconds to wait before calling the AI after typing (default `500`).
-* `nopilot.provider`: Default fallback provider.
+- `nopilot.provider`: Active AI provider.
+- `nopilot.model`: Optional provider-level model override.
+- `nopilot.inline.enabled`: Turn automatic ghost text suggestions on or off.
+- `nopilot.inline.qualityProfile`: Choose `fast`, `balanced`, or `rich` automatic inline behavior.
+- `nopilot.inline.pauseWhenCopilotActive`: Pause automatic NoPilot suggestions when GitHub Copilot is active for the current language.
+- `nopilot.inline.debounceMs`: Milliseconds to wait before requesting an automatic suggestion.
+- `nopilot.inline.maxPrefixLines`: Maximum lines before the cursor to include as inline context.
+- `nopilot.inline.maxSuffixLines`: Maximum lines after the cursor to include as inline context.
+- `nopilot.ollama.endpoint`: Ollama server endpoint, local or remote.
+- `nopilot.ollama.remoteMode`: `auto`, `forced-on`, or `forced-off` remote Ollama optimization.
+- `nopilot.ollama.model`: Ollama completion model.
+- `nopilot.anthropic.model`: Anthropic model.
+- `nopilot.openai.model`: OpenAI model.
+- `nopilot.gemini.model`: Gemini model.
+- `nopilot.commitMessage.language`: Commit message language, such as `en`, `ko`, or `ja`.
+- `nopilot.commitMessage.format`: `conventional` or `simple`.
 
-## 🔒 Security
+## Remote Ollama Tips
 
-Your source code is only sent to the specific provider you select. Keys are stored strictly locally using VS Code's Secret Storage, ensuring they are never exposed in configurations.
+Remote Ollama servers can feel different from local `localhost` setups because latency and intermittent network failures are more visible while you type. NoPilot's `auto` remote mode detects remote endpoints and slow local behavior, then keeps automatic inline requests leaner. Explicit actions, such as Inline Chat, can still use richer context.
 
-## 📦 Data Handling
+Use `forced-on` if your endpoint is behind a proxy, tunnel, LAN server, or remote machine and you always want remote-optimized inline completions. Use `forced-off` if you want local-style behavior even when NoPilot would otherwise optimize for latency.
+
+## Security
+
+Your source code is sent only to the provider you select. Provider API keys are stored locally using VS Code SecretStorage, and Ollama requests go only to the endpoint you configure.
+
+## Data Handling
 
 - NoPilot sends prompts and code context only to the AI provider you explicitly choose.
-- Provider API keys can be stored locally in VS Code SecretStorage.
+- Provider API keys are stored locally in VS Code SecretStorage.
 - Ollama requests are sent to the endpoint you configure, which may be local or on your network.
 - This project currently does not implement custom telemetry or analytics collection.
 - You are responsible for reviewing the data handling and retention policies of any third-party model provider you enable.
 
-## 🤝 Project Links
+## Project Links
 
 - Support: [SUPPORT.md](./SUPPORT.md)
 - Contributing: [CONTRIBUTING.md](./CONTRIBUTING.md)
@@ -61,4 +80,4 @@ Your source code is only sent to the specific provider you select. Keys are stor
 - Security: [SECURITY.md](./SECURITY.md)
 
 ---
-**Enjoy writing code faster and smarter! 👨‍💻👩‍💻**
+Built for developers who want Copilot-style speed without giving up provider choice.

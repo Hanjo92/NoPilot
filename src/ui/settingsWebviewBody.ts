@@ -25,7 +25,7 @@ const COMMIT_SECTION_MARKUP_BLOCK = `<h2>💬 Commit Messages</h2>
 </div>`;
 
 const FOOTER_MARKUP_BLOCK = `<div class="footer">
-  NoPilot v0.1.0 — Replace Copilot with your preferred AI provider
+  NoPilot v0.2.0 — Use your preferred AI provider inside VS Code
 </div>`;
 
 const BODY_BLOCKS = [
