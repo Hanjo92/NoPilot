@@ -17,6 +17,10 @@ test('normalizeOllamaRemoteMode accepts only supported values', () => {
 
 test('isLocalOllamaEndpoint detects local endpoints', () => {
   assert.equal(isLocalOllamaEndpoint('http://localhost:11434'), true);
+  assert.equal(isLocalOllamaEndpoint('0.0.0.0:11434'), true);
+  assert.equal(isLocalOllamaEndpoint('http://127.0.0.2:11434'), true);
+  assert.equal(isLocalOllamaEndpoint('127.1:11434'), true);
+  assert.equal(isLocalOllamaEndpoint('http://[::ffff:127.0.0.1]:11434'), true);
   assert.equal(isLocalOllamaEndpoint('127.0.0.1:11434'), true);
   assert.equal(isLocalOllamaEndpoint('http://[::1]:11434'), true);
   assert.equal(isLocalOllamaEndpoint('http://192.168.0.10:11434'), false);
@@ -60,6 +64,13 @@ test('resolveOllamaRemoteMode detects remote endpoint and slow local behavior', 
     recentDurationsMs: [200],
     recentFailureCount: 0,
   }), { enabled: false, reason: 'local' });
+
+  assert.deepEqual(resolveOllamaRemoteMode({
+    setting: 'auto',
+    endpoint: 'not a valid endpoint',
+    recentDurationsMs: [2000, 2100],
+    recentFailureCount: 4,
+  }), { enabled: false, reason: 'invalid-endpoint' });
 });
 
 test('createOllamaRemoteModeTracker keeps rolling latency and failure signals', () => {
@@ -74,5 +85,19 @@ test('createOllamaRemoteModeTracker keeps rolling latency and failure signals', 
   assert.deepEqual(tracker.snapshot(), {
     recentDurationsMs: [1700, 1800, 1900],
     recentFailureCount: 1,
+  });
+});
+
+test('createOllamaRemoteModeTracker normalizes non-positive limits', () => {
+  const tracker = createOllamaRemoteModeTracker(-1);
+
+  tracker.recordSuccess(1000);
+  tracker.recordSuccess(2000);
+  tracker.recordFailure();
+  tracker.recordFailure();
+
+  assert.deepEqual(tracker.snapshot(), {
+    recentDurationsMs: [],
+    recentFailureCount: 0,
   });
 });
