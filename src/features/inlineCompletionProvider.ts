@@ -1,6 +1,12 @@
 import * as vscode from 'vscode';
 import { ProviderManager } from '../providers/providerManager';
-import { CompletionRequest, InlineQualityProfile } from '../types';
+import type {
+  CompletionRequest,
+  InlineOptimizationProfile,
+  InlineQualityProfile,
+  InlineRequestStatus,
+  OllamaRemoteMode,
+} from '../types';
 import { log, logError } from '../utils/logger';
 import {
   cleanInlineCompletionText,
@@ -27,6 +33,15 @@ import {
   isCopilotEnabledForLanguage,
   shouldSkipNoPilotAutomaticInline,
 } from './copilotDetection';
+import {
+  createIdleInlineRequestStatus,
+  getInlineRequestStatusMessage,
+} from './inlineRequestStatus';
+import {
+  createOllamaRemoteModeTracker,
+  normalizeOllamaRemoteMode,
+  resolveOllamaRemoteMode,
+} from '../providers/ollamaRemoteMode';
 
 const WORKSPACE_SIMILAR_FILE_EXCLUDE_GLOB =
   '**/{node_modules,dist,out,build,coverage,.git}/**';
@@ -55,6 +70,19 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
   private cacheKeys: string[] = [];
   private readonly MAX_CACHE_SIZE = 50;
   private readonly requestAssemblyCache = new InlineRequestAssemblyCache();
+  private readonly requestStatusEmitter = new vscode.EventEmitter<InlineRequestStatus>();
+  readonly onDidChangeRequestStatus = this.requestStatusEmitter.event;
+  private requestStatus: InlineRequestStatus = createIdleInlineRequestStatus();
+  private readonly ollamaRemoteTracker = createOllamaRemoteModeTracker();
+  private requestStatusClearTimer: ReturnType<typeof setTimeout> | undefined;
+  private requestSlowTimer: ReturnType<typeof setTimeout> | undefined;
+  private inlineHintDecorationType = vscode.window.createTextEditorDecorationType({
+    after: {
+      margin: '0 0 0 1.2em',
+      color: new vscode.ThemeColor('descriptionForeground'),
+      fontStyle: 'italic',
+    },
+  });
 
   constructor(private readonly providerManager: ProviderManager) {
     const config = vscode.workspace.getConfiguration('nopilot');
@@ -107,11 +135,16 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       return undefined;
     }
 
+    const isRemoteOllama = this.resolveActiveOllamaRemoteMode();
+    const inlineOptimizationProfile = isRemoteOllama ? 'remote-ollama' : 'standard';
+    const isAutomaticTrigger =
+      context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic;
+    const shouldTrackRemoteAutomatic = isRemoteOllama && isAutomaticTrigger;
     const currentLine = document.lineAt(position.line).text;
     const requestPolicy = getInlineRequestPolicy({
-      isAutomaticTrigger:
-        context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic,
+      isAutomaticTrigger,
       qualityProfile: this.qualityProfile,
+      inlineOptimizationProfile,
       lineText: currentLine,
       cursorCharacter: position.character,
     });
@@ -119,7 +152,8 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     const cacheScope = buildInlineCacheScope(
       this.providerManager.getActiveProviderId(),
       activeProvider.info.currentModel,
-      this.qualityProfile
+      this.qualityProfile,
+      inlineOptimizationProfile
     );
 
     if (requestPolicy.skip) {
@@ -161,6 +195,15 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
 
     // If a newer request came in during debounce, abandon this one
     if (requestId !== this.requestCounter) {
+      if (shouldTrackRemoteAutomatic) {
+        this.setRequestStatus({
+          kind: 'cancelled',
+          providerId: activeProvider.info.id,
+          providerName: activeProvider.info.name,
+          model: activeProvider.info.currentModel,
+        });
+        this.scheduleRequestStatusClear();
+      }
       return undefined;
     }
 
@@ -170,7 +213,8 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       position,
       requestPolicy,
       context.triggerKind,
-      cacheScope
+      cacheScope,
+      inlineOptimizationProfile
     );
     const buildDurationMs = Date.now() - buildStart;
     log(
@@ -178,17 +222,44 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     );
 
     try {
+      const shouldTrackRequestStatus =
+        shouldTrackRemoteAutomatic && request.mode === 'automatic';
+      if (shouldTrackRequestStatus) {
+        this.setRequestStatus({
+          kind: 'waiting',
+          providerId: activeProvider.info.id,
+          providerName: activeProvider.info.name,
+          model: activeProvider.info.currentModel,
+          message: 'Requesting from remote Ollama...',
+        });
+        this.scheduleSlowStatus(requestId);
+      }
+
       // Use VS Code's own cancellation token directly
       // Don't add our own cancellation — let the API call finish
       const providerStart = Date.now();
       const response = await this.providerManager.complete(request, token);
       const providerDurationMs = Date.now() - providerStart;
+      if (shouldTrackRequestStatus) {
+        this.ollamaRemoteTracker.recordSuccess(providerDurationMs);
+        this.clearSlowTimer();
+        this.scheduleRequestStatusClear();
+      }
 
       // Check AFTER the API call if this request is still current
       if (requestId !== this.requestCounter) {
         log(
           `Inline #${requestId}: response arrived after ${providerDurationMs}ms but newer request exists, discarding`
         );
+        if (shouldTrackRequestStatus) {
+          this.setRequestStatus({
+            kind: 'cancelled',
+            providerId: activeProvider.info.id,
+            providerName: activeProvider.info.name,
+            model: activeProvider.info.currentModel,
+          });
+          this.scheduleRequestStatusClear();
+        }
         return undefined;
       }
 
@@ -238,7 +309,28 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
         error.message.includes('abort') ||
         error.name === 'AbortError'
       )) {
+        if (shouldTrackRemoteAutomatic) {
+          this.clearSlowTimer();
+          this.setRequestStatus({
+            kind: 'cancelled',
+            providerId: activeProvider.info.id,
+            providerName: activeProvider.info.name,
+            model: activeProvider.info.currentModel,
+          });
+          this.scheduleRequestStatusClear();
+        }
         return undefined;
+      }
+      if (shouldTrackRemoteAutomatic) {
+        this.ollamaRemoteTracker.recordFailure();
+        this.clearSlowTimer();
+        this.setRequestStatus({
+          kind: 'connection-problem',
+          providerId: activeProvider.info.id,
+          providerName: activeProvider.info.name,
+          model: activeProvider.info.currentModel,
+        });
+        this.scheduleRequestStatusClear();
       }
       logError(`Inline #${requestId} failed`, error);
       return undefined;
@@ -250,7 +342,8 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     position: vscode.Position,
     requestPolicy: ReturnType<typeof getInlineRequestPolicy>,
     triggerKind: vscode.InlineCompletionTriggerKind,
-    cacheScope: string
+    cacheScope: string,
+    inlineOptimizationProfile: InlineOptimizationProfile
   ): Promise<CompletionRequest> {
     const prefixLineBudget = Math.min(
       this.maxPrefixLines,
@@ -301,6 +394,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       currentBlockContext,
       stopSequences,
       maxTokens: requestPolicy.maxTokens,
+      inlineOptimizationProfile,
     };
   }
 
@@ -316,12 +410,13 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
       return '';
     }
 
+    const includeWorkspaceContext = requestPolicy.additionalContextScope === 'workspace';
     const contextKey = buildDerivedContextCacheKey({
       scope: cacheScope,
       documentUri: document.uri.toString(),
       documentVersion: document.version,
       language: document.languageId,
-      contextFlavor: requestPolicy.includeAdditionalContext ? 'full' : 'light',
+      contextFlavor: requestPolicy.additionalContextScope,
       prefixStartLine,
       referencedWords: searchWords,
     });
@@ -339,7 +434,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
           additionalSections.push(structureContext);
         }
 
-        if (requestPolicy.includeAdditionalContext) {
+        if (includeWorkspaceContext) {
           const similarFileSample = await this.resolveSimilarFileSampleContext(
             document,
             searchWords
@@ -350,7 +445,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
           }
         }
 
-        if (requestPolicy.includeAdditionalContext && searchWords.length > 0) {
+        if (includeWorkspaceContext && searchWords.length > 0) {
           const extension = this.getFileExtension(document.fileName);
           const searchPromises = searchWords.map((word) =>
             this.resolveReferencedSymbolSnippet(document, extension, word)
@@ -384,6 +479,99 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     );
 
     return cachedContext.value;
+  }
+
+  getRequestStatus(): InlineRequestStatus {
+    return this.requestStatus;
+  }
+
+  private getOllamaRemoteModeSetting(): OllamaRemoteMode {
+    return normalizeOllamaRemoteMode(
+      vscode.workspace.getConfiguration('nopilot.ollama').get('remoteMode', 'auto')
+    );
+  }
+
+  private getOllamaEndpoint(): string {
+    return vscode.workspace
+      .getConfiguration('nopilot.ollama')
+      .get('endpoint', 'http://localhost:11434');
+  }
+
+  private resolveActiveOllamaRemoteMode(): boolean {
+    if (this.providerManager.getActiveProviderId() !== 'ollama') {
+      return false;
+    }
+
+    const snapshot = this.ollamaRemoteTracker.snapshot();
+    return resolveOllamaRemoteMode({
+      setting: this.getOllamaRemoteModeSetting(),
+      endpoint: this.getOllamaEndpoint(),
+      recentDurationsMs: snapshot.recentDurationsMs,
+      recentFailureCount: snapshot.recentFailureCount,
+    }).enabled;
+  }
+
+  private setRequestStatus(status: InlineRequestStatus): void {
+    this.requestStatus = status;
+    this.requestStatusEmitter.fire(status);
+    this.updateEditorHint(status);
+  }
+
+  private scheduleRequestStatusClear(delayMs = 900): void {
+    if (this.requestStatusClearTimer) {
+      clearTimeout(this.requestStatusClearTimer);
+    }
+
+    this.requestStatusClearTimer = setTimeout(() => {
+      this.requestStatusClearTimer = undefined;
+      this.setRequestStatus(createIdleInlineRequestStatus());
+    }, delayMs);
+  }
+
+  private clearSlowTimer(): void {
+    if (this.requestSlowTimer) {
+      clearTimeout(this.requestSlowTimer);
+      this.requestSlowTimer = undefined;
+    }
+  }
+
+  private scheduleSlowStatus(requestId: number): void {
+    this.clearSlowTimer();
+    this.requestSlowTimer = setTimeout(() => {
+      this.requestSlowTimer = undefined;
+      if (requestId === this.requestCounter && this.requestStatus.kind === 'waiting') {
+        this.setRequestStatus({
+          ...this.requestStatus,
+          kind: 'slow',
+          message: 'Slow response from model',
+        });
+      }
+    }, 1200);
+  }
+
+  private updateEditorHint(status: InlineRequestStatus): void {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || status.kind === 'idle') {
+      editor?.setDecorations(this.inlineHintDecorationType, []);
+      return;
+    }
+
+    const message = getInlineRequestStatusMessage(status);
+    if (!message) {
+      editor.setDecorations(this.inlineHintDecorationType, []);
+      return;
+    }
+
+    const position = editor.selection.active;
+    const range = new vscode.Range(position, position);
+    editor.setDecorations(this.inlineHintDecorationType, [{
+      range,
+      renderOptions: {
+        after: {
+          contentText: ` ${message}`,
+        },
+      },
+    }]);
   }
 
   private async resolveSimilarFileSampleContext(
@@ -724,6 +912,12 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
+    this.clearSlowTimer();
+    if (this.requestStatusClearTimer) {
+      clearTimeout(this.requestStatusClearTimer);
+    }
+    this.inlineHintDecorationType.dispose();
+    this.requestStatusEmitter.dispose();
     this.disposables.forEach((d) => d.dispose());
   }
 }

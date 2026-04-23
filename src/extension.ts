@@ -59,6 +59,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Update status bar when provider changes
   providerManager.onDidChangeProvider(refreshStatusBar);
   context.subscriptions.push(
+    inlineProvider.onDidChangeRequestStatus(() => refreshStatusBar())
+  );
+  context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(() => refreshStatusBar())
   );
 
@@ -178,6 +181,7 @@ function updateStatusBar(
     model: info.currentModel,
     inlineEnabled: inlineProvider?.isEnabled() ?? true,
     pausedForCopilot: inlineProvider?.isPausedForCopilot() ?? false,
+    requestStatus: inlineProvider?.getRequestStatus(),
   });
 
   statusBarItem.text = presentation.text;

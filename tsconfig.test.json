@@ -29,6 +29,7 @@
     "src/features/inlineProjectContext.test.ts",
     "src/features/inlineText.ts",
     "src/features/inlineText.test.ts",
+    "src/features/inlineCompletionProvider.wiring.test.ts",
     "src/features/inlineRequestStatus.ts",
     "src/features/inlineRequestStatus.test.ts",
     "src/features/inlineContextCache.ts",
