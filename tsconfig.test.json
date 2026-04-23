@@ -29,6 +29,8 @@
     "src/features/inlineProjectContext.test.ts",
     "src/features/inlineText.ts",
     "src/features/inlineText.test.ts",
+    "src/features/inlineRequestStatus.ts",
+    "src/features/inlineRequestStatus.test.ts",
     "src/features/inlineContextCache.ts",
     "src/features/inlineContextCache.test.ts",
     "src/features/copilotDetection.ts",

@@ -28,3 +28,37 @@ test('getNoPilotStatusBarPresentation prioritizes disabled state over Copilot pa
   assert.match(presentation.tooltip, /Inline suggestions: disabled/);
   assert.doesNotMatch(presentation.tooltip, /paused because GitHub Copilot is active/);
 });
+
+test('getNoPilotStatusBarPresentation shows remote Ollama request state', () => {
+  const presentation = getNoPilotStatusBarPresentation({
+    displayName: 'Ollama',
+    providerName: 'Ollama',
+    model: 'qwen2.5-coder:7b',
+    inlineEnabled: true,
+    pausedForCopilot: false,
+    requestStatus: {
+      kind: 'slow',
+      providerId: 'ollama',
+      providerName: 'Ollama',
+      model: 'qwen2.5-coder:7b',
+    },
+  });
+
+  assert.match(presentation.text, /\$\(sync~spin\) \$\(sparkle\) Ollama/);
+  assert.match(presentation.tooltip, /Slow response from model/);
+});
+
+test('getNoPilotStatusBarPresentation keeps disabled state above request state', () => {
+  const presentation = getNoPilotStatusBarPresentation({
+    displayName: 'Ollama',
+    providerName: 'Ollama',
+    model: 'qwen2.5-coder:7b',
+    inlineEnabled: false,
+    pausedForCopilot: false,
+    requestStatus: { kind: 'waiting' },
+  });
+
+  assert.match(presentation.text, /\$\(circle-slash\)/);
+  assert.match(presentation.tooltip, /Inline suggestions: disabled/);
+  assert.doesNotMatch(presentation.tooltip, /Requesting from remote Ollama/);
+});
