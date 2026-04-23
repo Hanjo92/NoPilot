@@ -11,6 +11,19 @@ function stripWhitespace(source: string): string {
   return source.replace(/\s+/g, '');
 }
 
+function assertAppearsInOrder(source: string, snippets: string[]): void {
+  let cursor = -1;
+
+  for (const snippet of snippets) {
+    const nextIndex = source.indexOf(snippet, cursor + 1);
+    assert.ok(
+      nextIndex > cursor,
+      `Expected snippet to appear after previous snippet: ${snippet}`
+    );
+    cursor = nextIndex;
+  }
+}
+
 test('inline provider threads remote Ollama optimization through real request assembly', () => {
   const source = readSource('src/features/inlineCompletionProvider.ts');
   const compact = stripWhitespace(source);
@@ -65,8 +78,71 @@ test('inline provider exposes remote automatic request lifecycle status', () => 
   assert.match(source, /this\.scheduleSlowStatus\(requestId\);/);
   assert.match(source, /this\.ollamaRemoteTracker\.recordSuccess\(providerDurationMs\);/);
   assert.match(source, /this\.ollamaRemoteTracker\.recordFailure\(\);/);
-  assert.match(source, /kind: 'cancelled'/);
-  assert.match(source, /kind: 'connection-problem'/);
+  assert.match(source, /clearRemoteRequestLifecycle\(activeProvider\.info, 'cancelled'\)/);
+  assert.match(source, /clearRemoteRequestLifecycle\(activeProvider\.info, 'connection-problem'\)/);
+});
+
+test('inline provider prevents old clear timers from erasing newer request status', () => {
+  const source = readSource('src/features/inlineCompletionProvider.ts');
+
+  assert.match(source, /private clearRequestStatusClearTimer\(\): void/);
+  assert.match(
+    source,
+    /private setRequestStatus\(status: InlineRequestStatus\): void \{[\s\S]*?if \(status\.kind !== 'idle'\) \{[\s\S]*?this\.clearRequestStatusClearTimer\(\);[\s\S]*?\}/
+  );
+  assert.match(
+    source,
+    /private scheduleRequestStatusClear\(delayMs = 900\): void \{[\s\S]*?this\.clearRequestStatusClearTimer\(\);/
+  );
+});
+
+test('inline provider records remote success only after usable completion validation', () => {
+  const source = readSource('src/features/inlineCompletionProvider.ts');
+
+  assertAppearsInOrder(source, [
+    'const response = await this.providerManager.complete(request, token);',
+    'if (requestId !== this.requestCounter)',
+    'if (token.isCancellationRequested)',
+    'if (!response.text)',
+    'const cleanedText = cleanInlineCompletionText',
+    'if (!cleanedText)',
+    'this.ollamaRemoteTracker.recordSuccess(providerDurationMs);',
+    'return [',
+  ]);
+});
+
+test('inline provider clears remote lifecycle on skip and cache-hit exits', () => {
+  const source = readSource('src/features/inlineCompletionProvider.ts');
+
+  assert.match(
+    source,
+    /if \(requestPolicy\.skip\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info\);[\s\S]*?return undefined;[\s\S]*?\}/
+  );
+  assert.match(
+    source,
+    /if \(this\.cache\.has\(cacheKey\)\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info\);[\s\S]*?return \[new vscode\.InlineCompletionItem/
+  );
+});
+
+test('inline provider clears slow timer on tracked cancellation and empty-result exits', () => {
+  const source = readSource('src/features/inlineCompletionProvider.ts');
+
+  assert.match(
+    source,
+    /if \(wasCancelled \|\| token\.isCancellationRequested\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, 'cancelled'\);[\s\S]*?return undefined;[\s\S]*?\}/
+  );
+  assert.match(
+    source,
+    /if \(token\.isCancellationRequested\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info, 'cancelled'\);[\s\S]*?return undefined;[\s\S]*?\}/
+  );
+  assert.match(
+    source,
+    /if \(!response\.text\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info\);[\s\S]*?return undefined;[\s\S]*?\}/
+  );
+  assert.match(
+    source,
+    /if \(!cleanedText\) \{[\s\S]*?this\.clearRemoteRequestLifecycle\(activeProvider\.info\);[\s\S]*?return undefined;[\s\S]*?\}/
+  );
 });
 
 test('extension refreshes status bar from inline request status changes', () => {
