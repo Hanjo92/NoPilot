@@ -16,6 +16,9 @@ export class SettingsPanel {
   public static currentPanel: SettingsPanel | undefined;
   private readonly panel: vscode.WebviewPanel;
   private disposables: vscode.Disposable[] = [];
+  private stateRequestVersion = 0;
+  private isRefreshingProviderStateForWebview = false;
+  private isDisposed = false;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -41,7 +44,24 @@ export class SettingsPanel {
 
     // Update webview when provider changes
     this.disposables.push(
-      this.providerManager.onDidChangeProvider(() => this.sendStateToWebview())
+      this.providerManager.onDidChangeProvider(() => {
+        if (!this.isRefreshingProviderStateForWebview) {
+          this.requestStateRefresh();
+        }
+      }),
+      this.providerManager.onDidChangeUsage(() => {
+        this.requestStateRefresh();
+      }),
+      this.providerManager.onDidChangeProviderState(() => {
+        if (!this.isRefreshingProviderStateForWebview) {
+          this.requestStateRefresh();
+        }
+      }),
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('nopilot')) {
+          this.requestStateRefresh();
+        }
+      })
     );
   }
 
@@ -58,7 +78,7 @@ export class SettingsPanel {
     // If panel already exists, show it
     if (SettingsPanel.currentPanel) {
       SettingsPanel.currentPanel.panel.reveal(column);
-      SettingsPanel.currentPanel.sendStateToWebview();
+      SettingsPanel.currentPanel.requestStateRefresh();
       return SettingsPanel.currentPanel;
     }
 
@@ -81,19 +101,35 @@ export class SettingsPanel {
     );
 
     // Send initial state
-    SettingsPanel.currentPanel.sendStateToWebview();
+    SettingsPanel.currentPanel.requestStateRefresh();
 
     return SettingsPanel.currentPanel;
   }
 
+  private requestStateRefresh(): void {
+    void this.sendStateToWebview().catch((error) => {
+      logError('SettingsPanel state refresh failed', error);
+    });
+  }
+
   /** Send current state to the webview */
   private async sendStateToWebview(): Promise<void> {
+    const requestVersion = ++this.stateRequestVersion;
     const config = vscode.workspace.getConfiguration('nopilot');
     const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
+
+    this.isRefreshingProviderStateForWebview = true;
+    try {
+      await this.providerManager.refreshProviderState('ollama');
+    } finally {
+      this.isRefreshingProviderStateForWebview = false;
+    }
+
     const state = await buildSettingsWebviewState({
-      getProvider: (providerId) => this.providerManager.getProvider(providerId),
       getAllProviderInfos: () => this.providerManager.getAllProviderInfos(),
       getActiveProviderId: () => this.providerManager.getActiveProviderId(),
+      getProviderRequestCount: (providerId) =>
+        this.providerManager.getProviderRequestCount(providerId),
       getSetting: <T>(key: string, defaultValue: T) => {
         if (key === 'ollama.endpoint') {
           return ollamaConfig.get('endpoint', defaultValue);
@@ -106,6 +142,10 @@ export class SettingsPanel {
         return config.get(key, defaultValue);
       },
     });
+
+    if (this.isDisposed || requestVersion !== this.stateRequestVersion) {
+      return;
+    }
 
     const ollama = state.providers.find((provider) => provider.id === 'ollama');
     log(
@@ -123,6 +163,8 @@ export class SettingsPanel {
       await handleSettingsPanelMessage(message, {
         getProvider: (providerId) => this.providerManager.getProvider(providerId as any),
         switchProvider: (providerId) => this.providerManager.switchProvider(providerId as any),
+        syncProviderState: (providerId) => this.providerManager.syncProviderState(providerId as any),
+        reconcileConfiguredProvider: () => this.providerManager.reconcileConfiguredProvider(),
         updateModel: (providerId, model) =>
           this.providerManager.updateModel(providerId as any, model),
         promptForApiKey: (providerName) => this.authService.promptForApiKey(providerName),
@@ -150,6 +192,10 @@ export class SettingsPanel {
         debugLog: (logMessage) => log(logMessage),
       });
     } catch (error) {
+      if (message.command === 'refreshOllama') {
+        void this.panel.webview.postMessage({ command: 'resetOllamaRefreshPending' });
+      }
+
       logError(`SettingsPanel command failed (${message.command})`, error);
       void vscode.window.showErrorMessage(
         `NoPilot settings action failed: ${error instanceof Error ? error.message : String(error)}`
@@ -158,6 +204,7 @@ export class SettingsPanel {
   }
 
   dispose(): void {
+    this.isDisposed = true;
     SettingsPanel.currentPanel = undefined;
     this.panel.dispose();
     this.disposables.forEach((d) => d.dispose());

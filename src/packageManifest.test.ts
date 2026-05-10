@@ -6,11 +6,16 @@ import path from 'node:path';
 interface ExtensionManifest {
   activationEvents?: string[];
   contributes?: {
+    commands?: Array<{
+      command?: string;
+      title?: string;
+    }>;
     configuration?: {
       properties?: Record<string, {
         type?: string;
         enum?: string[];
-        default?: string;
+        default?: string | number | boolean;
+        description?: string;
       }>;
     };
   };
@@ -48,4 +53,37 @@ test('manifest exposes Ollama remote mode setting', () => {
   assert.equal(setting?.type, 'string');
   assert.equal(setting?.default, 'auto');
   assert.deepEqual(setting?.enum, ['auto', 'forced-on', 'forced-off']);
+});
+
+test('manifest keeps inline debounce default at 500ms', () => {
+  const manifest = readManifest();
+  const setting = manifest.contributes?.configuration?.properties?.['nopilot.inline.debounceMs'];
+
+  assert.equal(setting?.type, 'number');
+  assert.equal(setting?.default, 500);
+});
+
+test('manifest keeps core inline and commit defaults aligned', () => {
+  const properties = readManifest().contributes?.configuration?.properties ?? {};
+
+  assert.equal(properties['nopilot.inline.enabled']?.default, true);
+  assert.equal(properties['nopilot.inline.qualityProfile']?.default, 'balanced');
+  assert.equal(properties['nopilot.inline.pauseWhenCopilotActive']?.default, true);
+  assert.equal(properties['nopilot.inline.maxPrefixLines']?.default, 50);
+  assert.equal(properties['nopilot.inline.maxSuffixLines']?.default, 20);
+  assert.equal(properties['nopilot.commitMessage.language']?.default, 'en');
+  assert.equal(properties['nopilot.commitMessage.format']?.default, 'conventional');
+});
+
+test('manifest copy reflects model-level selection behavior', () => {
+  const manifest = readManifest();
+  const commands = manifest.contributes?.commands ?? [];
+  const properties = manifest.contributes?.configuration?.properties ?? {};
+  const switchCommand = commands.find((command) => command.command === 'nopilot.switchProvider');
+
+  assert.equal(switchCommand?.title, 'NoPilot: Select AI Model');
+  assert.equal(
+    properties['nopilot.model']?.description,
+    'VS Code LM model key override (empty = provider default)'
+  );
 });

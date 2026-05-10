@@ -51,6 +51,22 @@ const MAX_WORKSPACE_SIMILAR_FILE_CANDIDATES = 4;
 const MAX_WORKSPACE_MATCHES_PER_KEYWORD = 2;
 const SIMILAR_FILE_SEARCH_TIMEOUT_MS = 150;
 
+function normalizeDebounceMs(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 500;
+  }
+
+  return Math.min(2000, Math.max(100, Math.trunc(value)));
+}
+
+function normalizeContextLineCount(value: number, fallback: number): number {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.max(0, Math.trunc(value));
+}
+
 /**
  * Inline completion provider that uses the active AI provider
  * to suggest code as the user types (ghost text / gray suggestions).
@@ -92,9 +108,15 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     this.enabled = config.get('inline.enabled', true);
     this.qualityProfile = config.get<InlineQualityProfile>('inline.qualityProfile', 'balanced');
     this.pauseWhenCopilotActive = config.get('inline.pauseWhenCopilotActive', true);
-    this.debounceMs = config.get('inline.debounceMs', 300);
-    this.maxPrefixLines = config.get('inline.maxPrefixLines', 50);
-    this.maxSuffixLines = config.get('inline.maxSuffixLines', 20);
+    this.debounceMs = normalizeDebounceMs(config.get('inline.debounceMs', 500));
+    this.maxPrefixLines = normalizeContextLineCount(
+      config.get('inline.maxPrefixLines', 50),
+      50
+    );
+    this.maxSuffixLines = normalizeContextLineCount(
+      config.get('inline.maxSuffixLines', 20),
+      20
+    );
 
     this.disposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
@@ -103,9 +125,15 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
           this.enabled = cfg.get('inline.enabled', true);
           this.qualityProfile = cfg.get<InlineQualityProfile>('inline.qualityProfile', 'balanced');
           this.pauseWhenCopilotActive = cfg.get('inline.pauseWhenCopilotActive', true);
-          this.debounceMs = cfg.get('inline.debounceMs', 300);
-          this.maxPrefixLines = cfg.get('inline.maxPrefixLines', 50);
-          this.maxSuffixLines = cfg.get('inline.maxSuffixLines', 20);
+          this.debounceMs = normalizeDebounceMs(cfg.get('inline.debounceMs', 500));
+          this.maxPrefixLines = normalizeContextLineCount(
+            cfg.get('inline.maxPrefixLines', 50),
+            50
+          );
+          this.maxSuffixLines = normalizeContextLineCount(
+            cfg.get('inline.maxSuffixLines', 20),
+            20
+          );
         }
       }),
       this.providerManager.onDidChangeProvider(() => {

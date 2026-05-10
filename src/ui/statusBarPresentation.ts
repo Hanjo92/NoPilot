@@ -5,6 +5,11 @@ export interface NoPilotStatusBarPresentationInput {
   displayName: string;
   providerName: string;
   model: string;
+  currentProviderRequests: number;
+  mostUsedProvider?: {
+    providerName: string;
+    requestCount: number;
+  };
   inlineEnabled: boolean;
   pausedForCopilot: boolean;
   requestStatus?: InlineRequestStatus;
@@ -18,6 +23,7 @@ export interface NoPilotStatusBarPresentation {
 export function getNoPilotStatusBarPresentation(
   input: NoPilotStatusBarPresentationInput
 ): NoPilotStatusBarPresentation {
+  const usageLabel = `${input.currentProviderRequests} req`;
   const requestMessage =
     input.inlineEnabled && !input.pausedForCopilot && input.requestStatus
       ? getInlineRequestStatusMessage(input.requestStatus)
@@ -42,13 +48,17 @@ export function getNoPilotStatusBarPresentation(
   const tooltipLines = [
     `NoPilot — ${input.displayName}`,
     `Provider: ${input.providerName} | Model: ${input.model || 'auto'}`,
+    `Usage this session: ${input.currentProviderRequests} request${input.currentProviderRequests === 1 ? '' : 's'}`,
+    input.mostUsedProvider
+      ? `Top provider: ${input.mostUsedProvider.providerName} (${input.mostUsedProvider.requestCount} request${input.mostUsedProvider.requestCount === 1 ? '' : 's'})`
+      : 'Top provider: none yet',
     inlineStatus,
     requestMessage,
-    'Click to switch',
+    'Click to select model',
   ].filter(Boolean);
 
   return {
-    text: `${statusPrefix}$(sparkle) ${input.displayName}`,
+    text: `${statusPrefix}$(sparkle) ${input.displayName} · ${usageLabel}`,
     tooltip: tooltipLines.join('\n'),
   };
 }

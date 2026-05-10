@@ -1,32 +1,77 @@
 import type {
-  AIProvider,
   InlineQualityProfile,
-  ProviderId,
   ProviderInfo,
+  ProviderUsageSummary,
+  ProviderWebviewInfo,
   WebviewState,
 } from '../types';
-import { refreshProviderClient } from '../providers/providerCredentials';
 
 interface SettingsPanelStateSource {
-  getProvider: (providerId: ProviderId) => AIProvider | undefined;
   getAllProviderInfos: () => ProviderInfo[];
-  getActiveProviderId: () => ProviderId;
+  getActiveProviderId: () => ProviderInfo['id'];
+  getProviderRequestCount: (providerId: ProviderInfo['id']) => number;
   getSetting: <T>(key: string, defaultValue: T) => T;
+}
+
+function getMostUsedProvider(providers: ProviderWebviewInfo[]): ProviderUsageSummary | undefined {
+  let mostUsedProvider: ProviderWebviewInfo | undefined;
+
+  for (const provider of providers) {
+    if (provider.requestCount <= 0) {
+      continue;
+    }
+
+    if (!mostUsedProvider || provider.requestCount > mostUsedProvider.requestCount) {
+      mostUsedProvider = provider;
+    }
+  }
+
+  if (!mostUsedProvider) {
+    return undefined;
+  }
+
+  return {
+    providerId: mostUsedProvider.id,
+    providerName: mostUsedProvider.name,
+    providerIcon: mostUsedProvider.icon,
+    requestCount: mostUsedProvider.requestCount,
+  };
 }
 
 export async function buildSettingsWebviewState(
   source: SettingsPanelStateSource
 ): Promise<WebviewState> {
-  await refreshProviderClient(source.getProvider('ollama'));
+  const activeProviderId = source.getActiveProviderId();
+  const providers = source.getAllProviderInfos().map((provider) => ({
+    ...provider,
+    requestCount: source.getProviderRequestCount(provider.id),
+    isMostUsed: false,
+  }));
+  const mostUsedProvider = getMostUsedProvider(providers);
+  const providersWithUsageFlags = providers.map((provider) => ({
+    ...provider,
+    isMostUsed: mostUsedProvider?.providerId === provider.id,
+  }));
+  const currentProviderRequests =
+    providersWithUsageFlags.find((provider) => provider.id === activeProviderId)?.requestCount || 0;
+  const totalRequests = providersWithUsageFlags.reduce(
+    (total, provider) => total + provider.requestCount,
+    0
+  );
 
   return {
-    providers: source.getAllProviderInfos(),
-    activeProviderId: source.getActiveProviderId(),
+    providers: providersWithUsageFlags,
+    activeProviderId,
+    usage: {
+      currentProviderRequests,
+      totalRequests,
+      mostUsedProvider,
+    },
     settings: {
       inlineEnabled: source.getSetting('inline.enabled', true),
       qualityProfile: source.getSetting<InlineQualityProfile>('inline.qualityProfile', 'balanced'),
       pauseWhenCopilotActive: source.getSetting('inline.pauseWhenCopilotActive', true),
-      debounceMs: source.getSetting('inline.debounceMs', 300),
+      debounceMs: source.getSetting('inline.debounceMs', 500),
       maxPrefixLines: source.getSetting('inline.maxPrefixLines', 50),
       maxSuffixLines: source.getSetting('inline.maxSuffixLines', 20),
       ollamaEndpoint: source.getSetting('ollama.endpoint', 'http://localhost:11434'),
