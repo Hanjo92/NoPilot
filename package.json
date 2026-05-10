@@ -2,7 +2,7 @@
   "name": "nopilot",
   "displayName": "NoPilot",
   "description": "Use Claude, GPT, Gemini, Ollama, or VS Code LM for inline completions, inline edits, and AI commit messages.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "hanjo92",
   "license": "MIT",
   "icon": "media/icon.png",

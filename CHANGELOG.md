@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.2.1] - 2026-05-10
+
+### Fixed
+
+- Restored provider usage visibility in the model picker without adding extra option rows that break Quick Pick rendering.
+- Kept current, total, and most-used provider usage visible across the status bar tooltip, settings view, and model picker summary.
+
 ## [0.2.0] - 2026-04-23
 
 ### Added

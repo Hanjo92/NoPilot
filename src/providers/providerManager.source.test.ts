@@ -85,10 +85,37 @@ test('provider quick pick is backed by unified model entries', () => {
   assert.match(source, /if \(selected\.providerId && selected\.modelKey\) \{/);
   assert.match(source, /await this\.switchTo\(selected\.providerId, selected\.modelKey\)/);
   assert.match(source, /if \(info\.status === 'unavailable'\) \{/);
+  assert.match(source, /description: `Direct API · \$\{usageLabel\}`/);
   assert.match(source, /detail: '\$\(warning\) Unavailable'/);
   assert.match(source, /const availableModels = info\.availableModels\.length > 0/);
   assert.match(source, /for \(const model of availableModels\)/);
   assert.match(source, /if \(this\.usagePersistTimer\) \{\s*clearTimeout\(this\.usagePersistTimer\);\s*this\.usagePersistTimer = undefined;\s*void this\.flushPersistedUsageCounts\(\);\s*\}/);
   assert.match(source, /this\._onDidChangeProviderState\.dispose\(\);/);
   assert.match(source, /this\._onDidChangeUsage\.dispose\(\);/);
+});
+
+test('provider quick pick descriptions include usage counts without expanding details', () => {
+  const source = readProviderManagerSource();
+
+  assert.match(source, /const usageLabel = this\.formatProviderRequestCount\(\s*'vscode-lm'\s*\);/);
+  assert.match(source, /description: `via \$\{model\.vendor\} · \$\{usageLabel\}`/);
+  assert.match(source, /detail: isActive \? '\$\(check\) Active' : '\$\(plug\) Ready — no API key needed'/);
+  assert.match(source, /const usageLabel = this\.formatProviderRequestCount\(pid\);/);
+  assert.match(source, /for \(const model of availableModels\) \{[\s\S]*?description: `via \$\{info\.name\} Direct API · \$\{usageLabel\}`/);
+  assert.match(source, /for \(const model of availableModels\) \{[\s\S]*?detail: statusLabel/);
+  assert.match(source, /private formatRequestCount\(requestCount: number\): string \{/);
+  assert.match(source, /private formatProviderRequestCount\(providerId: ProviderId\): string \{/);
+  assert.match(source, /return this\.formatRequestCount\(this\.getProviderRequestCount\(providerId\)\);/);
+});
+
+test('provider quick pick keeps most-used summary out of option rows', () => {
+  const source = readProviderManagerSource();
+
+  assert.match(source, /action\?: 'settings';/);
+  assert.doesNotMatch(source, /usage-summary/);
+  assert.match(source, /private getProviderUsageSummaryLabel\(\): string \{/);
+  assert.match(source, /const mostUsedProvider = this\.getMostUsedProviderUsage\(\);/);
+  assert.match(source, /return mostUsedProvider\s*\? `Most used: \$\{mostUsedProvider\.providerIcon\} \$\{mostUsedProvider\.providerName\} \(\$\{this\.formatProviderRequestCount\(mostUsedProvider\.providerId\)\}\) · Total: \$\{totalUsageLabel\}`/);
+  assert.match(source, /: `Most used: none yet · Total: \$\{totalUsageLabel\}`;/);
+  assert.match(source, /placeHolder: `Choose your AI provider or model · \$\{this\.getProviderUsageSummaryLabel\(\)\}`/);
 });

@@ -384,6 +384,23 @@ export class ProviderManager implements vscode.Disposable {
     return mostUsedProvider;
   }
 
+  private formatRequestCount(requestCount: number): string {
+    return `${requestCount} request${requestCount === 1 ? '' : 's'}`;
+  }
+
+  private formatProviderRequestCount(providerId: ProviderId): string {
+    return this.formatRequestCount(this.getProviderRequestCount(providerId));
+  }
+
+  private getProviderUsageSummaryLabel(): string {
+    const mostUsedProvider = this.getMostUsedProviderUsage();
+    const totalUsageLabel = this.formatRequestCount(this.getTotalRequestCount());
+
+    return mostUsedProvider
+      ? `Most used: ${mostUsedProvider.providerIcon} ${mostUsedProvider.providerName} (${this.formatProviderRequestCount(mostUsedProvider.providerId)}) · Total: ${totalUsageLabel}`
+      : `Most used: none yet · Total: ${totalUsageLabel}`;
+  }
+
   private hydrateUsageCounts(
     storedUsageCounts?: Partial<Record<ProviderId, number>>
   ): void {
@@ -465,12 +482,13 @@ export class ProviderManager implements vscode.Disposable {
       const icon = VscodeLmProvider.getVendorIcon(model.vendor);
       const isActive =
         this.activeProviderId === 'vscode-lm' && this.activeModelKey === model.key;
+      const usageLabel = this.formatProviderRequestCount('vscode-lm');
 
       entries.push({
         providerId: 'vscode-lm',
         modelKey: model.key,
         label: `${icon} ${model.name || model.family}`,
-        description: `via ${model.vendor}`,
+        description: `via ${model.vendor} · ${usageLabel}`,
         detail: isActive ? '$(check) Active' : '$(plug) Ready — no API key needed',
         icon,
         ready: true,
@@ -486,13 +504,14 @@ export class ProviderManager implements vscode.Disposable {
 
       const info = provider.info;
       const isActive = this.activeProviderId === pid;
+      const usageLabel = this.formatProviderRequestCount(pid);
 
       if (info.status === 'unavailable') {
         entries.push({
           providerId: pid,
           modelKey: '',
           label: `${info.icon} ${info.name}`,
-          description: 'Direct API',
+          description: `Direct API · ${usageLabel}`,
           detail: '$(warning) Unavailable',
           icon: info.icon,
           ready: false,
@@ -505,14 +524,16 @@ export class ProviderManager implements vscode.Disposable {
         : [info.currentModel].filter(Boolean);
 
       if (availableModels.length === 0) {
+        const statusLabel = info.status === 'needs-key'
+          ? '$(key) API key needed'
+          : '$(warning) Unavailable';
+
         entries.push({
           providerId: pid,
           modelKey: '',
           label: `${info.icon} ${info.name}`,
-          description: 'Direct API',
-          detail: info.status === 'needs-key'
-            ? '$(key) API key needed'
-            : '$(warning) Unavailable',
+          description: `Direct API · ${usageLabel}`,
+          detail: statusLabel,
           icon: info.icon,
           ready: false,
         });
@@ -533,7 +554,7 @@ export class ProviderManager implements vscode.Disposable {
           providerId: pid,
           modelKey: model,
           label: `${info.icon} ${model}`,
-          description: `via ${info.name} Direct API`,
+          description: `via ${info.name} Direct API · ${usageLabel}`,
           detail: statusLabel,
           icon: info.icon,
           ready: info.status === 'ready',
@@ -573,7 +594,7 @@ export class ProviderManager implements vscode.Disposable {
 
     const selected = await vscode.window.showQuickPick(items, {
       title: 'NoPilot: Select AI Model',
-      placeHolder: 'Choose your AI provider or model',
+      placeHolder: `Choose your AI provider or model · ${this.getProviderUsageSummaryLabel()}`,
     });
 
     if (!selected) {
