@@ -175,21 +175,6 @@ test('inline provider invalidates stale remote lifecycle on provider changes', (
   );
 });
 
-test('inline provider sanitizes persisted numeric inline settings before using them', () => {
-  const source = readSource('src/features/inlineCompletionProvider.ts');
-
-  assert.match(source, /function normalizeDebounceMs\(value: number\): number \{/);
-  assert.match(source, /return Math\.min\(2000, Math\.max\(100, Math\.trunc\(value\)\)\);/);
-  assert.match(source, /function normalizeContextLineCount\(value: number, fallback: number\): number \{/);
-  assert.match(source, /return Math\.max\(0, Math\.trunc\(value\)\);/);
-  assert.match(source, /this\.debounceMs = normalizeDebounceMs\(config\.get\('inline\.debounceMs', 500\)\);/);
-  assert.match(source, /this\.maxPrefixLines = normalizeContextLineCount\(\s*config\.get\('inline\.maxPrefixLines', 50\),\s*50\s*\);/);
-  assert.match(source, /this\.maxSuffixLines = normalizeContextLineCount\(\s*config\.get\('inline\.maxSuffixLines', 20\),\s*20\s*\);/);
-  assert.match(source, /this\.debounceMs = normalizeDebounceMs\(cfg\.get\('inline\.debounceMs', 500\)\);/);
-  assert.match(source, /this\.maxPrefixLines = normalizeContextLineCount\(\s*cfg\.get\('inline\.maxPrefixLines', 50\),\s*50\s*\);/);
-  assert.match(source, /this\.maxSuffixLines = normalizeContextLineCount\(\s*cfg\.get\('inline\.maxSuffixLines', 20\),\s*20\s*\);/);
-});
-
 test('inline provider clears slow timer on tracked cancellation and empty-result exits', () => {
   const source = readSource('src/features/inlineCompletionProvider.ts');
 

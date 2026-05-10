@@ -54,19 +54,10 @@ export class GeminiProvider implements AIProvider {
     const hasKey = await this.authService.hasApiKey('gemini');
     this._info.hasApiKey = hasKey;
     this._info.status = hasKey ? 'ready' : 'needs-key';
-    if (!hasKey) {
-      this.genAI = undefined;
-      this.model = undefined;
-      const fallbackModels = getDirectProviderFallbackModels('gemini');
-      if (!fallbackModels.includes(this._info.currentModel)) {
-        this._info.currentModel = getDirectProviderDefaultModel('gemini');
-      }
-      this.applyModelState();
-      return false;
+    if (hasKey) {
+      await this.initClient();
     }
-
-    await this.initClient();
-    return true;
+    return hasKey;
   }
 
   private async initClient(): Promise<void> {
