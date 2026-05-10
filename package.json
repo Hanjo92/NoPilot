@@ -64,7 +64,7 @@
       },
       {
         "command": "nopilot.switchProvider",
-        "title": "NoPilot: Switch AI Provider"
+        "title": "NoPilot: Select AI Model"
       },
       {
         "command": "nopilot.setApiKey",
@@ -110,7 +110,7 @@
         "nopilot.model": {
           "type": "string",
           "default": "",
-          "description": "Model name (empty = provider default)"
+          "description": "VS Code LM model key override (empty = provider default)"
         },
         "nopilot.inline.enabled": {
           "type": "boolean",
@@ -216,7 +216,7 @@
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "compile": "tsc -noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test .test-dist/packageManifest.test.js .test-dist/providers/modelSelection.test.js .test-dist/providers/directProviderModels.test.js .test-dist/providers/ollamaModels.test.js .test-dist/providers/ollamaRemoteMode.test.js .test-dist/providers/prompts.test.js .test-dist/providers/inlineStrategies.test.js .test-dist/providers/providerCredentials.test.js .test-dist/features/inlineBlockContext.test.js .test-dist/features/inlineProjectContext.test.js .test-dist/features/inlineText.test.js .test-dist/features/inlineCompletionProvider.wiring.test.js .test-dist/features/inlineContextCache.test.js .test-dist/features/copilotDetection.test.js .test-dist/features/inlineRequestStatus.test.js .test-dist/ui/statusBarPresentation.test.js .test-dist/ui/settingsPanelState.test.js .test-dist/ui/settingsWebview.test.js .test-dist/ui/settingsPanelActions.test.js .test-dist/services/gitSelection.test.js",
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/packageManifest.test.js .test-dist/providers/modelSelection.test.js .test-dist/providers/providerManager.source.test.js .test-dist/providers/providerConfig.test.js .test-dist/providers/vscodeLmProvider.source.test.js .test-dist/providers/ollamaProvider.source.test.js .test-dist/providers/directApiProviders.source.test.js .test-dist/providers/directProviderModels.test.js .test-dist/providers/ollamaModels.test.js .test-dist/providers/ollamaRemoteMode.test.js .test-dist/providers/prompts.test.js .test-dist/providers/inlineStrategies.test.js .test-dist/providers/providerCredentials.test.js .test-dist/features/inlineBlockContext.test.js .test-dist/features/inlineProjectContext.test.js .test-dist/features/inlineText.test.js .test-dist/features/inlineCompletionProvider.wiring.test.js .test-dist/features/inlineContextCache.test.js .test-dist/features/copilotDetection.test.js .test-dist/features/inlineRequestStatus.test.js .test-dist/extension.source.test.js .test-dist/ui/statusBarPresentation.source.test.js .test-dist/ui/statusBarPresentation.test.js .test-dist/ui/settingsPanelActions.source.test.js .test-dist/ui/settingsPanel.source.test.js .test-dist/ui/settingsPanelState.source.test.js .test-dist/ui/settingsPanelState.test.js .test-dist/ui/settingsWebview.test.js .test-dist/ui/settingsWebviewScript.source.test.js .test-dist/ui/settingsPanelActions.test.js .test-dist/services/authService.source.test.js .test-dist/services/gitSelection.test.js",
     "lint": "eslint src"
   },
   "devDependencies": {

@@ -132,6 +132,34 @@ const PROVIDER_CARD_STYLE_BLOCK = `.provider-grid {
   color: var(--vscode-descriptionForeground);
 }
 
+.provider-card .card-usage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.8em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.provider-card .usage-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.provider-card .usage-value {
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+.provider-card .usage-badge {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
 .provider-card select {
   width: 100%;
   padding: 4px 8px;

@@ -3,12 +3,13 @@ import { normalizeOllamaEndpoint } from '../providers/ollamaModels';
 import {
   removeProviderApiKey,
   promptAndSaveProviderApiKey,
-  refreshProviderClient,
 } from '../providers/providerCredentials';
 
 export interface SettingsPanelActions {
   getProvider: (providerId: string) => AIProvider | undefined;
   switchProvider: (providerId: string) => Promise<void>;
+  syncProviderState: (providerId: string) => Promise<void>;
+  reconcileConfiguredProvider: () => Promise<void>;
   updateModel: (providerId: string, model: string) => Promise<void>;
   promptForApiKey: (providerName: string) => Promise<string | undefined>;
   setApiKey: (providerId: string, key: string) => Promise<void>;
@@ -40,6 +41,8 @@ export async function handleSettingsPanelMessage(
         actions
       );
       if (didSave) {
+        await actions.syncProviderState(message.providerId);
+        await actions.reconcileConfiguredProvider();
         await actions.sendState();
       }
       return;
@@ -51,6 +54,7 @@ export async function handleSettingsPanelMessage(
         actions.getProvider(message.providerId),
         actions
       );
+      await actions.syncProviderState(message.providerId);
       await actions.sendState();
       return;
     }
@@ -72,9 +76,6 @@ export async function handleSettingsPanelMessage(
           ? normalizeOllamaEndpoint(String(message.value ?? ''))
           : message.value
       );
-      if (message.key === 'ollama.endpoint') {
-        await refreshProviderClient(actions.getProvider('ollama'));
-      }
       await actions.sendState();
       return;
 
@@ -82,7 +83,6 @@ export async function handleSettingsPanelMessage(
       const endpoint = normalizeOllamaEndpoint(message.endpoint);
       actions.debugLog?.(`SettingsPanel refreshOllama requested | endpoint=${endpoint}`);
       await actions.updateSetting('ollama.endpoint', endpoint);
-      await refreshProviderClient(actions.getProvider('ollama'));
       actions.debugLog?.(`SettingsPanel refreshOllama completed | endpoint=${endpoint}`);
       await actions.sendState();
       return;
