@@ -15,7 +15,7 @@ export interface SettingsPanelActions {
   removeApiKey: (providerId: string) => Promise<void>;
   updateSetting: (key: string, value: unknown) => Promise<void>;
   openExternal: (url: string) => Promise<void>;
-  sendState: () => Promise<void>;
+  sendState: (options?: { refreshOllamaModels?: boolean }) => Promise<void>;
   debugLog?: (message: string) => void;
 }
 
@@ -25,12 +25,12 @@ export async function handleSettingsPanelMessage(
 ): Promise<void> {
   switch (message.command) {
     case 'requestState':
-      await actions.sendState();
+      await actions.sendState({ refreshOllamaModels: true });
       return;
 
     case 'switchProvider':
       await actions.switchProvider(message.providerId);
-      await actions.sendState();
+      await actions.sendState({ refreshOllamaModels: false });
       return;
 
     case 'setApiKey': {
@@ -40,7 +40,7 @@ export async function handleSettingsPanelMessage(
         actions
       );
       if (didSave) {
-        await actions.sendState();
+        await actions.sendState({ refreshOllamaModels: false });
       }
       return;
     }
@@ -51,13 +51,13 @@ export async function handleSettingsPanelMessage(
         actions.getProvider(message.providerId),
         actions
       );
-      await actions.sendState();
+      await actions.sendState({ refreshOllamaModels: false });
       return;
     }
 
     case 'updateModel':
       await actions.updateModel(message.providerId, message.model);
-      await actions.sendState();
+      await actions.sendState({ refreshOllamaModels: false });
       return;
 
     case 'updateSetting':
@@ -75,7 +75,7 @@ export async function handleSettingsPanelMessage(
       if (message.key === 'ollama.endpoint') {
         await refreshProviderClient(actions.getProvider('ollama'));
       }
-      await actions.sendState();
+      await actions.sendState({ refreshOllamaModels: false });
       return;
 
     case 'refreshOllama': {
@@ -84,7 +84,7 @@ export async function handleSettingsPanelMessage(
       await actions.updateSetting('ollama.endpoint', endpoint);
       await refreshProviderClient(actions.getProvider('ollama'));
       actions.debugLog?.(`SettingsPanel refreshOllama completed | endpoint=${endpoint}`);
-      await actions.sendState();
+      await actions.sendState({ refreshOllamaModels: false });
       return;
     }
 

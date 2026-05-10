@@ -120,7 +120,30 @@ const PROVIDER_CARD_STYLE_BLOCK = `.provider-grid {
 .provider-card .card-desc {
   color: var(--vscode-descriptionForeground);
   font-size: 0.85em;
+  margin-bottom: 10px;
+}
+
+.provider-card .card-usage {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.08));
+}
+
+.provider-card .usage-label {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.provider-card .usage-value {
+  font-size: 0.82em;
+  font-weight: 600;
 }
 
 .provider-card .card-model {
@@ -193,6 +216,38 @@ const SETTINGS_SECTION_STYLE_BLOCK = `.settings-section {
   border-radius: 8px;
   padding: 16px 20px;
   margin-top: 12px;
+}
+
+.usage-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.usage-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.06));
+}
+
+.usage-stat-label {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.usage-stat-value {
+  font-size: 1.05em;
+}
+
+.usage-stat-meta {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.82em;
 }
 
 .setting-row {

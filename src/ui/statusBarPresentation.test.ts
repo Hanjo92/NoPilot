@@ -9,10 +9,14 @@ test('getNoPilotStatusBarPresentation shows paused state when Copilot is suppres
     model: 'gpt-4o-mini',
     inlineEnabled: true,
     pausedForCopilot: true,
+    currentProviderRequests: 4,
+    mostUsedProviderName: 'OpenAI',
+    mostUsedProviderRequests: 4,
   });
 
-  assert.match(presentation.text, /\$\(debug-pause\) \$\(sparkle\) OpenAI/);
+  assert.match(presentation.text, /\$\(debug-pause\) \$\(sparkle\) OpenAI · 4 req/);
   assert.match(presentation.tooltip, /paused because GitHub Copilot is active/);
+  assert.match(presentation.tooltip, /Requests: 4/);
 });
 
 test('getNoPilotStatusBarPresentation prioritizes disabled state over Copilot pause', () => {
@@ -22,11 +26,14 @@ test('getNoPilotStatusBarPresentation prioritizes disabled state over Copilot pa
     model: '',
     inlineEnabled: false,
     pausedForCopilot: true,
+    currentProviderRequests: 0,
+    mostUsedProviderRequests: 0,
   });
 
-  assert.match(presentation.text, /\$\(circle-slash\) \$\(sparkle\) OpenAI/);
+  assert.match(presentation.text, /\$\(circle-slash\) \$\(sparkle\) OpenAI · 0 req/);
   assert.match(presentation.tooltip, /Inline suggestions: disabled/);
   assert.doesNotMatch(presentation.tooltip, /paused because GitHub Copilot is active/);
+  assert.match(presentation.tooltip, /Most used: None yet/);
 });
 
 test('getNoPilotStatusBarPresentation shows remote Ollama request state', () => {
@@ -36,6 +43,9 @@ test('getNoPilotStatusBarPresentation shows remote Ollama request state', () => 
     model: 'qwen2.5-coder:7b',
     inlineEnabled: true,
     pausedForCopilot: false,
+    currentProviderRequests: 9,
+    mostUsedProviderName: 'Ollama',
+    mostUsedProviderRequests: 9,
     requestStatus: {
       kind: 'slow',
       providerId: 'ollama',
@@ -55,6 +65,9 @@ test('getNoPilotStatusBarPresentation shows waiting Ollama request state', () =>
     model: 'qwen2.5-coder:7b',
     inlineEnabled: true,
     pausedForCopilot: false,
+    currentProviderRequests: 2,
+    mostUsedProviderName: 'Ollama',
+    mostUsedProviderRequests: 5,
     requestStatus: {
       kind: 'waiting',
       providerId: 'ollama',
@@ -74,6 +87,9 @@ test('getNoPilotStatusBarPresentation keeps request state out of tooltip when Co
     model: 'qwen2.5-coder:7b',
     inlineEnabled: true,
     pausedForCopilot: true,
+    currentProviderRequests: 2,
+    mostUsedProviderName: 'Ollama',
+    mostUsedProviderRequests: 5,
     requestStatus: {
       kind: 'waiting',
       providerId: 'ollama',
@@ -93,6 +109,8 @@ test('getNoPilotStatusBarPresentation tooltip has no blank lines without request
     model: 'qwen2.5-coder:7b',
     inlineEnabled: true,
     pausedForCopilot: false,
+    currentProviderRequests: 0,
+    mostUsedProviderRequests: 0,
   });
 
   assert.doesNotMatch(presentation.tooltip, /\n\n/);
@@ -105,6 +123,9 @@ test('getNoPilotStatusBarPresentation keeps disabled state above request state',
     model: 'qwen2.5-coder:7b',
     inlineEnabled: false,
     pausedForCopilot: false,
+    currentProviderRequests: 1,
+    mostUsedProviderName: 'Ollama',
+    mostUsedProviderRequests: 1,
     requestStatus: { kind: 'waiting' },
   });
 

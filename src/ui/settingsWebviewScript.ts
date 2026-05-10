@@ -18,13 +18,18 @@ ensureInteractionHandlersBound();
 vscode.postMessage({ command: 'requestState' });
 
 function render(state) {
-  renderProviders(state.providers, state.activeProviderId);
+  renderUsage(state);
+  renderProviders(state.providers, state.activeProviderId, state.usage.providerCounts);
   renderInlineSettings(state.settings);
   renderOllamaSettings(state);
   renderCommitSettings(state.settings);
 }`;
 
-const SCRIPT_PROVIDER_HELPER_BLOCK = `function getProviderStatusBadge(provider, isActive) {
+const SCRIPT_PROVIDER_HELPER_BLOCK = `function formatRequestCount(count) {
+  return count + ' request' + (count === 1 ? '' : 's');
+}
+
+function getProviderStatusBadge(provider, isActive) {
   if (isActive) {
     return '<span class="badge active">✓ Active</span>';
   }
@@ -73,7 +78,7 @@ function getProviderActionsMarkup(provider, isActive) {
   return actions;
 }
 
-function renderProviderCard(provider, activeId) {
+function renderProviderCard(provider, activeId, usageCount) {
   const isActive = provider.id === activeId;
   const statusBadge = getProviderStatusBadge(provider, isActive);
   const modelControl = getProviderModelControl(provider);
@@ -85,6 +90,10 @@ function renderProviderCard(provider, activeId) {
     + '  ' + statusBadge
     + '</div>'
     + '<div class="card-desc">' + provider.description + '</div>'
+    + '<div class="card-usage">'
+    + '  <span class="usage-label">Requests</span>'
+    + '  <span class="usage-value">' + formatRequestCount(usageCount) + '</span>'
+    + '</div>'
     + '<div class="card-model">'
     + '  <label>Model</label>'
     + '  ' + modelControl
@@ -93,9 +102,38 @@ function renderProviderCard(provider, activeId) {
     + '</div>';
 }`;
 
-const SCRIPT_PROVIDER_RENDER_BLOCK = `function renderProviders(providers, activeId) {
+const SCRIPT_PROVIDER_RENDER_BLOCK = `function getUsageSummaryMarkup(state) {
+  const usage = state.usage;
+  const activeProvider = state.providers.find(provider => provider.id === state.activeProviderId);
+  const activeProviderName = activeProvider ? activeProvider.name : state.activeProviderId;
+  const mostUsedMarkup = usage.mostUsedCount > 0
+    ? usage.mostUsedProviderName + ' · ' + formatRequestCount(usage.mostUsedCount)
+    : 'No requests yet';
+
+  return '<div class="usage-summary-grid">'
+    + '<div class="usage-stat-card">'
+    + '  <span class="usage-stat-label">Current Provider</span>'
+    + '  <strong class="usage-stat-value">' + activeProviderName + '</strong>'
+    + '  <span class="usage-stat-meta">' + formatRequestCount(usage.activeProviderCount) + '</span>'
+    + '</div>'
+    + '<div class="usage-stat-card">'
+    + '  <span class="usage-stat-label">Most Used</span>'
+    + '  <strong class="usage-stat-value">' + mostUsedMarkup + '</strong>'
+    + '  <span class="usage-stat-meta">Across ' + formatRequestCount(usage.totalRequests) + '</span>'
+    + '</div>'
+    + '</div>';
+}
+
+function renderUsage(state) {
+  const container = document.getElementById('usageSummary');
+  container.innerHTML = getUsageSummaryMarkup(state);
+}
+
+function renderProviders(providers, activeId, providerCounts) {
   const grid = document.getElementById('providerGrid');
-  grid.innerHTML = providers.map(provider => renderProviderCard(provider, activeId)).join('');
+  grid.innerHTML = providers.map(provider =>
+    renderProviderCard(provider, activeId, providerCounts[provider.id] || 0)
+  ).join('');
 }`;
 
 const SCRIPT_SETTINGS_RENDER_BLOCK = `const COMMIT_LANGUAGE_OPTIONS = [

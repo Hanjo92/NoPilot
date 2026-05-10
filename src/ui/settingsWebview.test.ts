@@ -23,6 +23,7 @@ test('getSettingsWebviewHtml includes required sections and CSP nonce wiring', (
   const html = getSettingsWebviewHtml(nonce);
 
   assert.match(html, /NoPilot Settings/);
+  assert.match(html, /id="usageSummary"/);
   assert.match(html, /id="providerGrid"/);
   assert.match(html, /id="inlineSettings"/);
   assert.match(html, /id="commitSettings"/);
@@ -38,6 +39,7 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   const styles = getSettingsWebviewStyles();
   const script = getSettingsWebviewScript();
 
+  assert.match(body, /id="usageSummary"/);
   assert.match(body, /id="providerGrid"/);
   assert.match(body, /id="inlineSettings"/);
   assert.match(body, /id="ollamaSettings"/);
@@ -47,10 +49,17 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(body, /quota exhaustion or sign-in expiry/);
 
   assert.match(styles, /\.provider-grid/);
+  assert.match(styles, /\.usage-summary-grid/);
+  assert.match(styles, /\.card-usage/);
   assert.match(styles, /\.settings-section/);
   assert.match(styles, /\.footer/);
   assert.match(styles, /\.settings-note/);
 
+  assert.match(script, /function renderUsage/);
+  assert.match(script, /function getUsageSummaryMarkup/);
+  assert.match(script, /formatRequestCount/);
+  assert.match(script, /state\.usage\.providerCounts/);
+  assert.match(script, /Most Used/);
   assert.match(script, /function renderProviders/);
   assert.match(script, /function getProviderStatusBadge/);
   assert.match(script, /function getProviderModelControl/);

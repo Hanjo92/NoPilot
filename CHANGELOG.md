@@ -11,6 +11,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Remote Ollama optimization mode with Auto, Forced On, and Forced Off controls.
 - Marketplace and README guidance for provider setup, remote Ollama endpoints, and data handling.
 - Inline request status feedback for remote or slow Ollama suggestions.
+- Provider usage summaries in the status bar and settings panel, including per-provider request counts and most-used provider tracking.
 
 ### Changed
 

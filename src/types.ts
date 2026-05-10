@@ -82,6 +82,18 @@ export interface ProviderInfo {
   hasApiKey: boolean;
 }
 
+export interface ProviderUsageSnapshot {
+  providerCounts: Record<ProviderId, number>;
+  totalRequests: number;
+  mostUsedProviderId?: ProviderId;
+  mostUsedCount: number;
+}
+
+export interface WebviewUsageState extends ProviderUsageSnapshot {
+  activeProviderCount: number;
+  mostUsedProviderName: string;
+}
+
 export interface AIProvider {
   readonly info: ProviderInfo;
 
@@ -122,6 +134,7 @@ export type WebviewMessage =
 export interface WebviewState {
   providers: ProviderInfo[];
   activeProviderId: ProviderId;
+  usage: WebviewUsageState;
   settings: {
     inlineEnabled: boolean;
     qualityProfile: InlineQualityProfile;

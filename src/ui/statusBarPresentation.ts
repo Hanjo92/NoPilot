@@ -7,6 +7,9 @@ export interface NoPilotStatusBarPresentationInput {
   model: string;
   inlineEnabled: boolean;
   pausedForCopilot: boolean;
+  currentProviderRequests: number;
+  mostUsedProviderName?: string;
+  mostUsedProviderRequests: number;
   requestStatus?: InlineRequestStatus;
 }
 
@@ -42,13 +45,17 @@ export function getNoPilotStatusBarPresentation(
   const tooltipLines = [
     `NoPilot — ${input.displayName}`,
     `Provider: ${input.providerName} | Model: ${input.model || 'auto'}`,
+    `Requests: ${input.currentProviderRequests}`,
+    input.mostUsedProviderName
+      ? `Most used: ${input.mostUsedProviderName} (${input.mostUsedProviderRequests})`
+      : 'Most used: None yet',
     inlineStatus,
     requestMessage,
     'Click to switch',
   ].filter(Boolean);
 
   return {
-    text: `${statusPrefix}$(sparkle) ${input.displayName}`,
+    text: `${statusPrefix}$(sparkle) ${input.displayName} · ${input.currentProviderRequests} req`,
     tooltip: tooltipLines.join('\n'),
   };
 }

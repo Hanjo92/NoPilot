@@ -1,6 +1,11 @@
 const HEADER_MARKUP_BLOCK = `<h1><span class="icon">⚡</span> NoPilot Settings</h1>
 <p class="subtitle">Configure your AI providers and extension settings</p>`;
 
+const USAGE_SECTION_MARKUP_BLOCK = `<h2>📊 Usage</h2>
+<div class="settings-section usage-section" id="usageSummary">
+  <!-- Dynamically populated -->
+</div>`;
+
 const PROVIDER_SECTION_MARKUP_BLOCK = `<h2>🔌 Providers</h2>
 <div class="provider-grid" id="providerGrid">
   <!-- Dynamically populated -->
@@ -30,6 +35,7 @@ const FOOTER_MARKUP_BLOCK = `<div class="footer">
 
 const BODY_BLOCKS = [
   HEADER_MARKUP_BLOCK,
+  USAGE_SECTION_MARKUP_BLOCK,
   PROVIDER_SECTION_MARKUP_BLOCK,
   INLINE_SECTION_MARKUP_BLOCK,
   OLLAMA_SECTION_MARKUP_BLOCK,

@@ -8,6 +8,7 @@ import {
   ProviderInfo,
 } from '../types';
 import { AuthService } from '../services/authService';
+import { UsageTracker } from '../services/usageTracker';
 import { VscodeLmProvider } from './vscodeLmProvider';
 import { AnthropicProvider } from './anthropicProvider';
 import { OpenAIProvider } from './openaiProvider';
@@ -54,7 +55,10 @@ export class ProviderManager implements vscode.Disposable {
   private readonly _onDidChangeProvider = new vscode.EventEmitter<ProviderId>();
   readonly onDidChangeProvider = this._onDidChangeProvider.event;
 
-  constructor(private readonly authService: AuthService) {
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usageTracker: UsageTracker
+  ) {
     // Read active provider from settings
     const config = vscode.workspace.getConfiguration('nopilot');
     this.activeProviderId = config.get<ProviderId>('provider', 'vscode-lm');
@@ -188,6 +192,7 @@ export class ProviderManager implements vscode.Disposable {
     token: vscode.CancellationToken
   ): Promise<CompletionResponse> {
     const provider = this.getActiveProvider();
+    this.usageTracker.recordRequest(provider.info.id);
     return provider.complete(request, token);
   }
 
@@ -197,6 +202,7 @@ export class ProviderManager implements vscode.Disposable {
     token: vscode.CancellationToken
   ): Promise<string> {
     const provider = this.getActiveProvider();
+    this.usageTracker.recordRequest(provider.info.id);
     return provider.generateCommitMessage(request, token);
   }
 

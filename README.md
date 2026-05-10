@@ -12,6 +12,7 @@ NoPilot brings inline code completion, selection-based inline edits, and AI comm
 - **Choose your provider**: Switch between VS Code LM, Anthropic, OpenAI, Gemini, and Ollama from the NoPilot settings panel.
 - **Inline completions that fit your latency**: Pick Fast, Balanced, or Rich quality profiles for automatic ghost text.
 - **Remote Ollama friendly**: Auto-detect remote or slow Ollama behavior, trim automatic inline requests, and show request status when the endpoint is slow or unreachable.
+- **Provider usage at a glance**: See per-provider request counts, the current provider's usage, and your most-used provider in the settings panel and status bar.
 - **Context-aware suggestions**: Reuse local cache entries, current-file context, nearby structure, and workspace symbols when the selected profile allows it.
 - **Inline Chat**: Select code, press `Ctrl+I` or `Cmd+I`, and ask NoPilot to edit or replace it in place.
 - **AI commit messages**: Generate conventional or simple commit messages from your Git diff.

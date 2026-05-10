@@ -1,6 +1,7 @@
 import type {
   AIProvider,
   InlineQualityProfile,
+  ProviderUsageSnapshot,
   ProviderId,
   ProviderInfo,
   WebviewState,
@@ -11,17 +12,34 @@ interface SettingsPanelStateSource {
   getProvider: (providerId: ProviderId) => AIProvider | undefined;
   getAllProviderInfos: () => ProviderInfo[];
   getActiveProviderId: () => ProviderId;
+  getUsageSnapshot: () => ProviderUsageSnapshot;
   getSetting: <T>(key: string, defaultValue: T) => T;
 }
 
 export async function buildSettingsWebviewState(
-  source: SettingsPanelStateSource
+  source: SettingsPanelStateSource,
+  options: {
+    refreshOllamaModels?: boolean;
+  } = {}
 ): Promise<WebviewState> {
-  await refreshProviderClient(source.getProvider('ollama'));
+  if (options.refreshOllamaModels ?? true) {
+    await refreshProviderClient(source.getProvider('ollama'));
+  }
+  const providers = source.getAllProviderInfos();
+  const activeProviderId = source.getActiveProviderId();
+  const usage = source.getUsageSnapshot();
+  const mostUsedProvider = usage.mostUsedProviderId
+    ? providers.find((provider) => provider.id === usage.mostUsedProviderId)
+    : undefined;
 
   return {
-    providers: source.getAllProviderInfos(),
-    activeProviderId: source.getActiveProviderId(),
+    providers,
+    activeProviderId,
+    usage: {
+      ...usage,
+      activeProviderCount: usage.providerCounts[activeProviderId] ?? 0,
+      mostUsedProviderName: mostUsedProvider?.name ?? 'None yet',
+    },
     settings: {
       inlineEnabled: source.getSetting('inline.enabled', true),
       qualityProfile: source.getSetting<InlineQualityProfile>('inline.qualityProfile', 'balanced'),

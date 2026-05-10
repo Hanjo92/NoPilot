@@ -6,6 +6,7 @@ import { handleSettingsPanelMessage } from './settingsPanelActions';
 import { buildSettingsWebviewState } from './settingsPanelState';
 import { createNonce, getSettingsWebviewHtml } from './settingsWebview';
 import { log, logError } from '../utils/logger';
+import { UsageTracker } from '../services/usageTracker';
 
 /**
  * Manages the Webview-based settings panel.
@@ -20,7 +21,8 @@ export class SettingsPanel {
   private constructor(
     panel: vscode.WebviewPanel,
     private readonly providerManager: ProviderManager,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
+    private readonly usageTracker: UsageTracker
   ) {
     this.panel = panel;
 
@@ -41,7 +43,14 @@ export class SettingsPanel {
 
     // Update webview when provider changes
     this.disposables.push(
-      this.providerManager.onDidChangeProvider(() => this.sendStateToWebview())
+      this.providerManager.onDidChangeProvider(() =>
+        this.sendStateToWebview({ refreshOllamaModels: false })
+      )
+    );
+    this.disposables.push(
+      this.usageTracker.onDidChangeUsage(() =>
+        this.sendStateToWebview({ refreshOllamaModels: false })
+      )
     );
   }
 
@@ -49,7 +58,8 @@ export class SettingsPanel {
   static createOrShow(
     extensionUri: vscode.Uri,
     providerManager: ProviderManager,
-    authService: AuthService
+    authService: AuthService,
+    usageTracker: UsageTracker
   ): SettingsPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -58,7 +68,7 @@ export class SettingsPanel {
     // If panel already exists, show it
     if (SettingsPanel.currentPanel) {
       SettingsPanel.currentPanel.panel.reveal(column);
-      SettingsPanel.currentPanel.sendStateToWebview();
+      SettingsPanel.currentPanel.sendStateToWebview({ refreshOllamaModels: true });
       return SettingsPanel.currentPanel;
     }
 
@@ -77,23 +87,29 @@ export class SettingsPanel {
     SettingsPanel.currentPanel = new SettingsPanel(
       panel,
       providerManager,
-      authService
+      authService,
+      usageTracker
     );
 
     // Send initial state
-    SettingsPanel.currentPanel.sendStateToWebview();
+    SettingsPanel.currentPanel.sendStateToWebview({ refreshOllamaModels: true });
 
     return SettingsPanel.currentPanel;
   }
 
   /** Send current state to the webview */
-  private async sendStateToWebview(): Promise<void> {
+  private async sendStateToWebview(
+    options: {
+      refreshOllamaModels?: boolean;
+    } = {}
+  ): Promise<void> {
     const config = vscode.workspace.getConfiguration('nopilot');
     const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
     const state = await buildSettingsWebviewState({
       getProvider: (providerId) => this.providerManager.getProvider(providerId),
       getAllProviderInfos: () => this.providerManager.getAllProviderInfos(),
       getActiveProviderId: () => this.providerManager.getActiveProviderId(),
+      getUsageSnapshot: () => this.usageTracker.getSnapshot(),
       getSetting: <T>(key: string, defaultValue: T) => {
         if (key === 'ollama.endpoint') {
           return ollamaConfig.get('endpoint', defaultValue);
@@ -105,7 +121,7 @@ export class SettingsPanel {
 
         return config.get(key, defaultValue);
       },
-    });
+    }, options);
 
     const ollama = state.providers.find((provider) => provider.id === 'ollama');
     log(
@@ -146,7 +162,7 @@ export class SettingsPanel {
         openExternal: async (url) => {
           await vscode.env.openExternal(vscode.Uri.parse(url));
         },
-        sendState: () => this.sendStateToWebview(),
+        sendState: (options) => this.sendStateToWebview(options),
         debugLog: (logMessage) => log(logMessage),
       });
     } catch (error) {

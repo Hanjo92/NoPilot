@@ -9,6 +9,7 @@ import { handleInlineChat } from './features/inlineChat';
 import { promptAndSaveProviderApiKey } from './providers/providerCredentials';
 import { log, getOutputChannel } from './utils/logger';
 import { getNoPilotStatusBarPresentation } from './ui/statusBarPresentation';
+import { UsageTracker } from './services/usageTracker';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -20,9 +21,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const authService = new AuthService(context.secrets);
   const gitService = new GitService();
   await gitService.initialize();
+  const usageTracker = new UsageTracker(context.globalState);
+  context.subscriptions.push(usageTracker);
 
   // ── Provider Manager ──
-  const providerManager = new ProviderManager(authService);
+  const providerManager = new ProviderManager(authService, usageTracker);
   await providerManager.initialize();
   context.subscriptions.push(providerManager);
 
@@ -51,7 +54,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     100
   );
   statusBarItem.command = 'nopilot.switchProvider';
-  const refreshStatusBar = () => updateStatusBar(providerManager, inlineProvider);
+  const refreshStatusBar = () => updateStatusBar(providerManager, usageTracker, inlineProvider);
   refreshStatusBar();
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
@@ -60,6 +63,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   providerManager.onDidChangeProvider(refreshStatusBar);
   context.subscriptions.push(
     inlineProvider.onDidChangeRequestStatus(() => refreshStatusBar())
+  );
+  context.subscriptions.push(
+    usageTracker.onDidChangeUsage(() => refreshStatusBar())
   );
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(() => refreshStatusBar())
@@ -77,7 +83,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Open settings panel
   context.subscriptions.push(
     vscode.commands.registerCommand('nopilot.openSettings', () => {
-      SettingsPanel.createOrShow(context.extensionUri, providerManager, authService);
+      SettingsPanel.createOrShow(
+        context.extensionUri,
+        providerManager,
+        authService,
+        usageTracker
+      );
     })
   );
 
@@ -170,11 +181,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 /** Update the status bar item with current provider info */
 function updateStatusBar(
   providerManager: ProviderManager,
+  usageTracker: UsageTracker,
   inlineProvider?: NoPilotInlineCompletionProvider
 ): void {
   const displayName = providerManager.getActiveDisplayName();
   const active = providerManager.getActiveProvider();
   const info = active.info;
+  const usage = usageTracker.getSnapshot();
+  const mostUsedProvider = usage.mostUsedProviderId
+    ? providerManager.getProvider(usage.mostUsedProviderId)?.info
+    : undefined;
   const requestStatus = inlineProvider?.getRequestStatus();
   const activeRequestStatus = requestStatus?.providerId === info.id
     ? requestStatus
@@ -185,6 +201,9 @@ function updateStatusBar(
     model: info.currentModel,
     inlineEnabled: inlineProvider?.isEnabled() ?? true,
     pausedForCopilot: inlineProvider?.isPausedForCopilot() ?? false,
+    currentProviderRequests: usage.providerCounts[info.id] ?? 0,
+    mostUsedProviderName: mostUsedProvider?.name,
+    mostUsedProviderRequests: usage.mostUsedCount,
     requestStatus: activeRequestStatus,
   });
 
