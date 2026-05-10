@@ -43,13 +43,18 @@ export class OllamaProvider implements AIProvider {
     return { ...this._info };
   }
 
+  private clearAvailableModels(): void {
+    this._info.availableModels = [];
+    this._info.currentModel = '';
+  }
+
   async isAvailable(): Promise<boolean> {
     try {
       this._info.availableModels = await fetchAvailableCompletionModels(this.endpoint);
 
       if (this._info.availableModels.length === 0) {
         this._info.status = 'unavailable';
-        this._info.currentModel = '';
+        this.clearAvailableModels();
         return false;
       }
 
@@ -69,7 +74,7 @@ export class OllamaProvider implements AIProvider {
       return true;
     } catch {
       this._info.status = 'unavailable';
-      this._info.availableModels = [];
+      this.clearAvailableModels();
       return false;
     }
   }
