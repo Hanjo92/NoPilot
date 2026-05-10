@@ -11,6 +11,11 @@ window.addEventListener('message', event => {
     ollamaRefreshPending = false;
     pendingOllamaEndpoint = '';
     render(currentState);
+    return;
+  }
+
+  if (message.command === 'resetOllamaRefreshPending') {
+    setOllamaRefreshPending(false, '');
   }
 });
 
@@ -19,22 +24,27 @@ vscode.postMessage({ command: 'requestState' });
 
 function render(state) {
   renderProviders(state.providers, state.activeProviderId);
+  renderProviderUsageSummary(state);
   renderInlineSettings(state.settings);
   renderOllamaSettings(state);
   renderCommitSettings(state.settings);
 }`;
 
 const SCRIPT_PROVIDER_HELPER_BLOCK = `function getProviderStatusBadge(provider, isActive) {
-  if (isActive) {
+  if (isActive && provider.status === 'ready') {
     return '<span class="badge active">✓ Active</span>';
   }
 
   if (provider.status === 'needs-key') {
-    return '<span class="badge needs-key">🔑 Key needed</span>';
+    return '<span class="badge needs-key">'
+      + (isActive ? '⚠ Active · Key needed' : '🔑 Key needed')
+      + '</span>';
   }
 
   if (provider.status === 'unavailable') {
-    return '<span class="badge unavailable">Unavailable</span>';
+    return '<span class="badge unavailable">'
+      + (isActive ? '⚠ Active · Unavailable' : 'Unavailable')
+      + '</span>';
   }
 
   return '<span class="badge">Ready</span>';
@@ -55,7 +65,7 @@ function getProviderModelControl(provider) {
 function getProviderActionsMarkup(provider, isActive) {
   let actions = '';
 
-  if (!isActive && (provider.status === 'ready' || !provider.requiresApiKey)) {
+  if (!isActive && provider.status === 'ready') {
     actions += '<button class="primary" data-action="switchProvider" data-provider-id="' + provider.id + '">Activate</button>';
   }
 
@@ -73,11 +83,24 @@ function getProviderActionsMarkup(provider, isActive) {
   return actions;
 }
 
+function formatRequestCount(count) {
+  return count + ' request' + (count === 1 ? '' : 's');
+}
+
+function getProviderUsageMarkup(provider) {
+  return '<div class="card-usage">'
+    + '  <span class="usage-label">Usage</span>'
+    + '  <span class="usage-value">' + formatRequestCount(provider.requestCount) + '</span>'
+    + (provider.isMostUsed ? '<span class="usage-badge">Top</span>' : '')
+    + '</div>';
+}
+
 function renderProviderCard(provider, activeId) {
   const isActive = provider.id === activeId;
   const statusBadge = getProviderStatusBadge(provider, isActive);
   const modelControl = getProviderModelControl(provider);
   const actions = getProviderActionsMarkup(provider, isActive);
+  const usage = getProviderUsageMarkup(provider);
 
   return '<div class="provider-card' + (isActive ? ' active' : '') + '">'
     + '<div class="card-header">'
@@ -89,6 +112,7 @@ function renderProviderCard(provider, activeId) {
     + '  <label>Model</label>'
     + '  ' + modelControl
     + '</div>'
+    + usage
     + '<div class="card-actions">' + actions + '</div>'
     + '</div>';
 }`;
@@ -96,6 +120,27 @@ function renderProviderCard(provider, activeId) {
 const SCRIPT_PROVIDER_RENDER_BLOCK = `function renderProviders(providers, activeId) {
   const grid = document.getElementById('providerGrid');
   grid.innerHTML = providers.map(provider => renderProviderCard(provider, activeId)).join('');
+}
+
+function renderProviderUsageSummary(state) {
+  const summary = document.getElementById('providerUsageSummary');
+  const currentProvider = state.providers.find(provider => provider.id === state.activeProviderId);
+  const currentUsageLabel = currentProvider
+    ? currentProvider.name + ': ' + formatRequestCount(state.usage.currentProviderRequests)
+    : formatRequestCount(state.usage.currentProviderRequests);
+  const topProviderLabel = state.usage.mostUsedProvider
+    ? state.usage.mostUsedProvider.providerIcon + ' '
+      + state.usage.mostUsedProvider.providerName
+      + ' · '
+      + formatRequestCount(state.usage.mostUsedProvider.requestCount)
+    : 'None yet';
+
+  summary.innerHTML = '<strong>Current provider:</strong> '
+    + currentUsageLabel
+    + ' · <strong>Most used:</strong> '
+    + topProviderLabel
+    + ' · <strong>Total:</strong> '
+    + formatRequestCount(state.usage.totalRequests);
 }`;
 
 const SCRIPT_SETTINGS_RENDER_BLOCK = `const COMMIT_LANGUAGE_OPTIONS = [
@@ -336,6 +381,20 @@ function textInput(key, value, placeholder) {
     + ' data-setting-key="' + key + '">';
 }
 
+function clampNumberInputValue(value, min, max) {
+  let nextValue = value;
+
+  if (Number.isFinite(min)) {
+    nextValue = Math.max(nextValue, min);
+  }
+
+  if (Number.isFinite(max)) {
+    nextValue = Math.min(nextValue, max);
+  }
+
+  return nextValue;
+}
+
 function selectInput(key, value, options) {
   return '<select data-setting-key="' + key + '">'
     + options.map(o =>
@@ -422,7 +481,19 @@ const SCRIPT_INTERACTION_BLOCK = `function ensureInteractionHandlersBound() {
     }
 
     if (target instanceof HTMLInputElement && target.type === 'number') {
-      updateSetting(settingKey, parseInt(target.value, 10));
+      const parsedValue = parseInt(target.value, 10);
+      if (Number.isNaN(parsedValue)) {
+        return;
+      }
+
+      const min = target.min ? parseInt(target.min, 10) : Number.NaN;
+      const max = target.max ? parseInt(target.max, 10) : Number.NaN;
+      const normalizedValue = clampNumberInputValue(parsedValue, min, max);
+      if (target.value !== String(normalizedValue)) {
+        target.value = String(normalizedValue);
+      }
+
+      updateSetting(settingKey, normalizedValue);
       return;
     }
 
