@@ -7,13 +7,10 @@ import { CommitMessageGenerator } from './features/commitMessageGenerator';
 import { SettingsPanel } from './ui/settingsPanel';
 import { handleInlineChat } from './features/inlineChat';
 import { promptAndSaveProviderApiKey } from './providers/providerCredentials';
-import { getProviderModelConfigKey, getProviderModelSettingScope } from './providers/providerConfig';
-import type { ProviderId } from './types';
-import { log, logError, getOutputChannel } from './utils/logger';
+import { log, getOutputChannel } from './utils/logger';
 import { getNoPilotStatusBarPresentation } from './ui/statusBarPresentation';
 
 let statusBarItem: vscode.StatusBarItem;
-const PROVIDER_IDS: ProviderId[] = ['vscode-lm', 'anthropic', 'openai', 'gemini', 'ollama'];
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   log('Activating extension...');
@@ -25,7 +22,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   await gitService.initialize();
 
   // ── Provider Manager ──
-  const providerManager = new ProviderManager(authService, context.globalState);
+  const providerManager = new ProviderManager(authService);
   await providerManager.initialize();
   context.subscriptions.push(providerManager);
 
@@ -61,33 +58,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // Update status bar when provider changes
   providerManager.onDidChangeProvider(refreshStatusBar);
-  providerManager.onDidChangeUsage(refreshStatusBar);
   context.subscriptions.push(
     inlineProvider.onDidChangeRequestStatus(() => refreshStatusBar())
   );
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(() => refreshStatusBar())
-  );
-  context.subscriptions.push(
-    authService.onDidChange((event) => {
-      const providerId = authService.getProviderIdForSecretKey(event.key);
-      if (!providerId) {
-        return;
-      }
-
-      if (authService.consumeLocalSecretChange(event.key)) {
-        return;
-      }
-
-      void (async () => {
-        try {
-          await providerManager.refreshProviderState(providerId);
-          await providerManager.reconcileConfiguredProvider();
-        } catch (error) {
-          logError('Secret change sync failed', error);
-        }
-      })();
-    })
   );
 
   // ── Commands ──
@@ -160,8 +135,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         );
 
         if (didSave && provider) {
-          await providerManager.syncProviderState(selected.id as ProviderId);
-          await providerManager.reconcileConfiguredProvider();
           vscode.window.showInformationMessage(
             `NoPilot: ${provider.info.name} API key saved`
           );
@@ -174,47 +147,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // ── Config Change Listener ──
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      void (async () => {
-        try {
-          if (e.affectsConfiguration('nopilot.ollama.endpoint')) {
-            await providerManager.refreshProviderState('ollama');
-          }
+      if (e.affectsConfiguration('nopilot.provider')) {
+        const newProvider = vscode.workspace
+          .getConfiguration('nopilot')
+          .get<string>('provider', 'vscode-lm');
+        providerManager.switchProvider(newProvider as any);
+      }
 
-          if (
-            (e.affectsConfiguration('nopilot.provider') ||
-              e.affectsConfiguration('nopilot.ollama.endpoint'))
-          ) {
-            await providerManager.reconcileConfiguredProvider();
-          }
-
-          for (const providerId of PROVIDER_IDS) {
-            if (!e.affectsConfiguration(getProviderModelSettingScope(providerId))) {
-              continue;
-            }
-
-            const configuredModel = vscode.workspace
-              .getConfiguration('nopilot')
-              .get<string>(getProviderModelConfigKey(providerId), '');
-            const provider = providerManager.getProvider(providerId);
-
-            if (provider && configuredModel !== provider.info.currentModel) {
-              await providerManager.updateModel(providerId, configuredModel);
-            }
-          }
-
-          if (
-            e.affectsConfiguration('nopilot.inline') ||
-            e.affectsConfiguration('nopilot.ollama.endpoint') ||
-            e.affectsConfiguration('nopilot.ollama.remoteMode') ||
-            e.affectsConfiguration('github.copilot.enable') ||
-            e.affectsConfiguration('editor.inlineSuggest.enabled')
-          ) {
-            refreshStatusBar();
-          }
-        } catch (error) {
-          logError('Configuration change sync failed', error);
-        }
-      })();
+      if (
+        e.affectsConfiguration('nopilot.inline') ||
+        e.affectsConfiguration('github.copilot.enable') ||
+        e.affectsConfiguration('editor.inlineSuggest.enabled')
+      ) {
+        refreshStatusBar();
+      }
     })
   );
 
@@ -233,18 +179,10 @@ function updateStatusBar(
   const activeRequestStatus = requestStatus?.providerId === info.id
     ? requestStatus
     : undefined;
-  const mostUsedProvider = providerManager.getMostUsedProviderUsage();
   const presentation = getNoPilotStatusBarPresentation({
     displayName,
     providerName: info.name,
     model: info.currentModel,
-    currentProviderRequests: providerManager.getProviderRequestCount(info.id),
-    mostUsedProvider: mostUsedProvider
-      ? {
-          providerName: mostUsedProvider.providerName,
-          requestCount: mostUsedProvider.requestCount,
-        }
-      : undefined,
     inlineEnabled: inlineProvider?.isEnabled() ?? true,
     pausedForCopilot: inlineProvider?.isPausedForCopilot() ?? false,
     requestStatus: activeRequestStatus,

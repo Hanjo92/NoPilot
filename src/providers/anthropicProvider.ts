@@ -53,17 +53,6 @@ export class AnthropicProvider implements AIProvider {
     const hasKey = await this.authService.hasApiKey('anthropic');
     this._info.hasApiKey = hasKey;
     this._info.status = hasKey ? 'ready' : 'needs-key';
-
-    if (!hasKey) {
-      this.client = undefined;
-      const fallbackModels = getDirectProviderFallbackModels('anthropic');
-      if (!fallbackModels.includes(this._info.currentModel)) {
-        this._info.currentModel = getDirectProviderDefaultModel('anthropic');
-      }
-      this.applyModelState();
-      return false;
-    }
-
     if (hasKey && !this.client) {
       const apiKey = await this.authService.getApiKey('anthropic');
       if (apiKey) {
@@ -71,7 +60,7 @@ export class AnthropicProvider implements AIProvider {
         this.client = new Anthropic({ apiKey });
       }
     }
-    return true;
+    return hasKey;
   }
 
   setCurrentModel(model: string): void {

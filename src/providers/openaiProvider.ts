@@ -70,14 +70,8 @@ export class OpenAIProvider implements AIProvider {
       return true;
     }
 
-    this.client = undefined;
     this._info.hasApiKey = false;
     this._info.status = 'needs-key';
-    const fallbackModels = getDirectProviderFallbackModels('openai');
-    if (!fallbackModels.includes(this._info.currentModel)) {
-      this._info.currentModel = getDirectProviderDefaultModel('openai');
-    }
-    this.applyModelState();
     return false;
   }
 

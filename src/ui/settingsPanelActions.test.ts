@@ -46,8 +46,6 @@ function createActions(overrides: Partial<Parameters<typeof handleSettingsPanelM
   const calls = {
     sendState: 0,
     switchProvider: [] as string[],
-    syncProviderState: [] as string[],
-    reconcileConfiguredProvider: 0,
     updateModel: [] as Array<{ providerId: string; model: string }>,
     prompts: [] as string[],
     setApiKeys: [] as Array<{ providerId: string; key: string }>,
@@ -60,12 +58,6 @@ function createActions(overrides: Partial<Parameters<typeof handleSettingsPanelM
     getProvider: () => provider,
     switchProvider: async (providerId: string) => {
       calls.switchProvider.push(providerId);
-    },
-    syncProviderState: async (providerId: string) => {
-      calls.syncProviderState.push(providerId);
-    },
-    reconcileConfiguredProvider: async () => {
-      calls.reconcileConfiguredProvider += 1;
     },
     updateModel: async (providerId: string, model: string) => {
       calls.updateModel.push({ providerId, model });
@@ -114,8 +106,6 @@ test('handleSettingsPanelMessage stores API key, refreshes provider, and sends s
   assert.deepEqual(calls.prompts, ['OpenAI']);
   assert.deepEqual(calls.setApiKeys, [{ providerId: 'openai', key: 'secret-key' }]);
   assert.equal(provider.refreshCalls, 1);
-  assert.deepEqual(calls.syncProviderState, ['openai']);
-  assert.equal(calls.reconcileConfiguredProvider, 1);
   assert.equal(calls.sendState, 1);
 });
 
@@ -131,8 +121,6 @@ test('handleSettingsPanelMessage skips API key update when prompt is cancelled',
 
   assert.deepEqual(calls.setApiKeys, []);
   assert.equal(provider.refreshCalls, 0);
-  assert.deepEqual(calls.syncProviderState, []);
-  assert.equal(calls.reconcileConfiguredProvider, 0);
   assert.equal(calls.sendState, 0);
 });
 
@@ -146,7 +134,6 @@ test('handleSettingsPanelMessage removes API key, refreshes provider, and sends 
 
   assert.deepEqual(calls.removeApiKeys, ['openai']);
   assert.equal(provider.refreshCalls, 1);
-  assert.deepEqual(calls.syncProviderState, ['openai']);
   assert.equal(calls.sendState, 1);
 });
 
@@ -178,7 +165,7 @@ test('handleSettingsPanelMessage refreshes Ollama after updating its endpoint', 
   assert.deepEqual(calls.updateSettings, [
     { key: 'ollama.endpoint', value: 'http://127.0.0.1:11434' },
   ]);
-  assert.equal(provider.refreshCalls, 0);
+  assert.equal(provider.refreshCalls, 1);
   assert.equal(calls.sendState, 1);
 });
 
@@ -208,6 +195,6 @@ test('handleSettingsPanelMessage saves the typed endpoint before refreshing Olla
   assert.deepEqual(calls.updateSettings, [
     { key: 'ollama.endpoint', value: 'http://10.0.0.5:11434' },
   ]);
-  assert.equal(provider.refreshCalls, 0);
+  assert.equal(provider.refreshCalls, 1);
   assert.equal(calls.sendState, 1);
 });

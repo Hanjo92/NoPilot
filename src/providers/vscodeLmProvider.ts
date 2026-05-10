@@ -59,16 +59,9 @@ export class VscodeLmProvider implements AIProvider {
     return [...this.discoveredModels];
   }
 
-  private clearDiscoveredModels(): void {
-    this.discoveredModels = [];
-    this._info.availableModels = [];
-    this._info.currentModel = '';
-  }
-
   async isAvailable(): Promise<boolean> {
     try {
       if (typeof vscode.lm === 'undefined') {
-        this.clearDiscoveredModels();
         this._info.status = 'unavailable';
         return false;
       }
@@ -92,11 +85,9 @@ export class VscodeLmProvider implements AIProvider {
         }
         return true;
       }
-      this.clearDiscoveredModels();
       this._info.status = 'unavailable';
       return false;
     } catch {
-      this.clearDiscoveredModels();
       this._info.status = 'unavailable';
       return false;
     }

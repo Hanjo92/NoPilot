@@ -82,18 +82,6 @@ export interface ProviderInfo {
   hasApiKey: boolean;
 }
 
-export interface ProviderUsageSummary {
-  providerId: ProviderId;
-  providerName: string;
-  providerIcon: string;
-  requestCount: number;
-}
-
-export interface ProviderWebviewInfo extends ProviderInfo {
-  requestCount: number;
-  isMostUsed: boolean;
-}
-
 export interface AIProvider {
   readonly info: ProviderInfo;
 
@@ -132,13 +120,8 @@ export type WebviewMessage =
   | { command: 'openExternal'; url: string };
 
 export interface WebviewState {
-  providers: ProviderWebviewInfo[];
+  providers: ProviderInfo[];
   activeProviderId: ProviderId;
-  usage: {
-    currentProviderRequests: number;
-    totalRequests: number;
-    mostUsedProvider?: ProviderUsageSummary;
-  };
   settings: {
     inlineEnabled: boolean;
     qualityProfile: InlineQualityProfile;

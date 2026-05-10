@@ -38,7 +38,7 @@ NoPilot brings inline code completion, selection-based inline edits, and AI comm
 You can customize NoPilot's behavior fully via **VS Code Settings > Extensions > NoPilot**:
 
 - `nopilot.provider`: Active AI provider.
-- `nopilot.model`: Optional VS Code LM model override.
+- `nopilot.model`: Optional provider-level model override.
 - `nopilot.inline.enabled`: Turn automatic ghost text suggestions on or off.
 - `nopilot.inline.qualityProfile`: Choose `fast`, `balanced`, or `rich` automatic inline behavior.
 - `nopilot.inline.pauseWhenCopilotActive`: Pause automatic NoPilot suggestions when GitHub Copilot is active for the current language.

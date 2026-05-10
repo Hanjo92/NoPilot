@@ -39,7 +39,6 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   const script = getSettingsWebviewScript();
 
   assert.match(body, /id="providerGrid"/);
-  assert.match(body, /id="providerUsageSummary"/);
   assert.match(body, /id="inlineSettings"/);
   assert.match(body, /id="ollamaSettings"/);
   assert.match(body, /id="commitSettings"/);
@@ -56,9 +55,6 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(script, /function getProviderStatusBadge/);
   assert.match(script, /function getProviderModelControl/);
   assert.match(script, /function getProviderActionsMarkup/);
-  assert.match(script, /function formatRequestCount/);
-  assert.match(script, /function getProviderUsageMarkup/);
-  assert.match(script, /function renderProviderUsageSummary/);
   assert.doesNotMatch(script, /onclick=/);
   assert.doesNotMatch(script, /onchange=/);
   assert.doesNotMatch(script, /onkeydown=/);
