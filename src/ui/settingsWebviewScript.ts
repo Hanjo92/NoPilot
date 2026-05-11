@@ -87,6 +87,32 @@ function formatRequestCount(count) {
   return count + ' request' + (count === 1 ? '' : 's');
 }
 
+function formatUsagePercent(requestCount, totalRequests) {
+  if (totalRequests <= 0) {
+    return '0%';
+  }
+
+  const rawPercent = (requestCount / totalRequests) * 100;
+  const roundedPercent = rawPercent >= 10 ? Math.round(rawPercent) : Math.round(rawPercent * 10) / 10;
+  const normalizedPercent = Number.isInteger(roundedPercent)
+    ? String(roundedPercent)
+    : roundedPercent.toFixed(1).replace(/\\.0$/, '');
+
+  return normalizedPercent + '%';
+}
+
+function getProviderUsageColor(providerId) {
+  const usageColors = {
+    'vscode-lm': 'var(--usage-vscode-lm)',
+    anthropic: 'var(--usage-anthropic)',
+    openai: 'var(--usage-openai)',
+    gemini: 'var(--usage-gemini)',
+    ollama: 'var(--usage-ollama)',
+  };
+
+  return usageColors[providerId] || 'var(--usage-fallback)';
+}
+
 function getProviderUsageMarkup(provider) {
   return '<div class="card-usage">'
     + '  <span class="usage-label">Usage</span>'
@@ -122,25 +148,94 @@ const SCRIPT_PROVIDER_RENDER_BLOCK = `function renderProviders(providers, active
   grid.innerHTML = providers.map(provider => renderProviderCard(provider, activeId)).join('');
 }
 
-function renderProviderUsageSummary(state) {
-  const summary = document.getElementById('providerUsageSummary');
+function getProviderUsageChartMarkup(providers, totalRequests) {
+  let startDegrees = 0;
+  const segments = providers
+    .filter(provider => provider.requestCount > 0)
+    .map(provider => {
+      const segmentDegrees = (provider.requestCount / totalRequests) * 360;
+      const endDegrees = startDegrees + segmentDegrees;
+      const segment = getProviderUsageColor(provider.id)
+        + ' '
+        + startDegrees.toFixed(1)
+        + 'deg '
+        + endDegrees.toFixed(1)
+        + 'deg';
+      startDegrees = endDegrees;
+      return segment;
+    });
+
+  const gradient = segments.length > 0
+    ? 'conic-gradient(' + segments.join(', ') + ')'
+    : 'var(--usage-track)';
+
+  return '<div class="usage-chart-shell">'
+    + '<div class="usage-chart" style="background:' + gradient + ';">'
+    + '  <div class="usage-chart-hole">'
+    + '    <span class="usage-chart-total-label">Total</span>'
+    + '    <strong class="usage-chart-total-value">' + totalRequests + '</strong>'
+    + '  </div>'
+    + '</div>'
+    + '<div class="usage-chart-caption">Request share by provider</div>'
+    + '</div>';
+}
+
+function getProviderUsageLegendMarkup(providers, totalRequests) {
+  return '<div class="usage-legend">'
+    + providers.map(provider =>
+        '<div class="usage-legend-item">'
+        + '  <span class="usage-legend-label">'
+        + '    <span class="usage-legend-dot" style="background:' + getProviderUsageColor(provider.id) + ';"></span>'
+        + '    <span class="usage-legend-name">' + provider.icon + ' ' + provider.name + '</span>'
+        + '  </span>'
+        + '  <span class="usage-legend-metrics">'
+        + '    <strong>' + formatUsagePercent(provider.requestCount, totalRequests) + '</strong>'
+        + '    <span>' + formatRequestCount(provider.requestCount) + '</span>'
+        + '  </span>'
+        + '</div>'
+      ).join('')
+    + '</div>';
+}
+
+function getProviderUsageSummaryMarkup(state) {
   const currentProvider = state.providers.find(provider => provider.id === state.activeProviderId);
   const currentUsageLabel = currentProvider
-    ? currentProvider.name + ': ' + formatRequestCount(state.usage.currentProviderRequests)
+    ? currentProvider.icon + ' ' + currentProvider.name + ' · ' + formatRequestCount(state.usage.currentProviderRequests)
     : formatRequestCount(state.usage.currentProviderRequests);
   const topProviderLabel = state.usage.mostUsedProvider
-    ? state.usage.mostUsedProvider.providerIcon + ' '
+    ? state.usage.mostUsedProvider.providerIcon
+      + ' '
       + state.usage.mostUsedProvider.providerName
       + ' · '
       + formatRequestCount(state.usage.mostUsedProvider.requestCount)
     : 'None yet';
 
-  summary.innerHTML = '<strong>Current provider:</strong> '
-    + currentUsageLabel
-    + ' · <strong>Most used:</strong> '
-    + topProviderLabel
-    + ' · <strong>Total:</strong> '
-    + formatRequestCount(state.usage.totalRequests);
+  if (state.usage.totalRequests === 0) {
+    return '<div class="provider-usage-summary empty">'
+      + '<div class="usage-empty-state">No provider requests yet</div>'
+      + '<div class="usage-summary-stats">'
+      + '  <div class="usage-stat"><span class="usage-stat-label">Current provider</span><strong>' + currentUsageLabel + '</strong></div>'
+      + '  <div class="usage-stat"><span class="usage-stat-label">Most used</span><strong>' + topProviderLabel + '</strong></div>'
+      + '  <div class="usage-stat"><span class="usage-stat-label">Total</span><strong>' + formatRequestCount(state.usage.totalRequests) + '</strong></div>'
+      + '</div>'
+      + '<div class="usage-empty-copy">Start using NoPilot to see each provider&apos;s request share.</div>'
+      + '</div>';
+  }
+
+  return '<div class="provider-usage-summary">'
+    + getProviderUsageChartMarkup(state.providers, state.usage.totalRequests)
+    + '<div class="usage-summary-stats">'
+    + '  <div class="usage-stat"><span class="usage-stat-label">Current provider</span><strong>' + currentUsageLabel + '</strong></div>'
+    + '  <div class="usage-stat"><span class="usage-stat-label">Most used</span><strong>' + topProviderLabel + '</strong></div>'
+    + '  <div class="usage-stat"><span class="usage-stat-label">Total</span><strong>' + formatRequestCount(state.usage.totalRequests) + '</strong></div>'
+    + '</div>'
+    + getProviderUsageLegendMarkup(state.providers, state.usage.totalRequests)
+    + '</div>';
+}
+
+function renderProviderUsageSummary(state) {
+  const summary = document.getElementById('providerUsageSummary');
+  summary.innerHTML = getProviderUsageSummaryMarkup(state);
 }`;
 
 const SCRIPT_SETTINGS_RENDER_BLOCK = `const COMMIT_LANGUAGE_OPTIONS = [
