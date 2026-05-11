@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- Settings usage summary now includes a donut chart that shows each provider's share of total requests.
+
 ## [0.2.1] - 2026-05-10
 
 ### Fixed

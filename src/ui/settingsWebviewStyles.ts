@@ -6,6 +6,13 @@ const ROOT_STYLE_BLOCK = `:root {
   --badge-bg: var(--vscode-badge-background);
   --badge-fg: var(--vscode-badge-foreground);
   --danger: var(--vscode-errorForeground);
+  --usage-track: color-mix(in srgb, var(--vscode-editorWidget-border, var(--card-border)) 35%, transparent);
+  --usage-vscode-lm: #5b8cff;
+  --usage-anthropic: #d97757;
+  --usage-openai: #10a37f;
+  --usage-gemini: #4d90fe;
+  --usage-ollama: #f2b84b;
+  --usage-fallback: var(--vscode-textLink-foreground);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -344,6 +351,177 @@ const SETTINGS_NOTE_STYLE_BLOCK = `.settings-note {
   color: var(--vscode-descriptionForeground);
   font-size: 0.8em;
   line-height: 1.5;
+}
+
+.provider-usage-panel {
+  margin-top: 12px;
+  padding: 16px 20px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+
+.provider-usage-summary {
+  display: grid;
+  grid-template-columns: minmax(160px, 200px) minmax(220px, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.provider-usage-summary.empty {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.usage-chart-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.usage-chart {
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--usage-track);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-border) 65%, transparent);
+}
+
+.usage-chart-hole {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: var(--vscode-editor-background);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.usage-chart-total-label,
+.usage-stat-label,
+.usage-chart-caption,
+.usage-legend-metrics span,
+.usage-empty-copy {
+  color: var(--vscode-descriptionForeground);
+}
+
+.usage-chart-total-label,
+.usage-stat-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72em;
+}
+
+.usage-chart-total-value {
+  font-size: 1.6em;
+  line-height: 1;
+}
+
+.usage-chart-caption,
+.usage-empty-copy {
+  font-size: 0.85em;
+}
+
+.usage-summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.usage-stat,
+.usage-empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: color-mix(in srgb, var(--card-bg) 82%, transparent);
+}
+
+.usage-empty-state {
+  justify-content: center;
+  font-weight: 600;
+  min-height: 96px;
+}
+
+.usage-legend {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 12px;
+}
+
+.usage-legend-item,
+.usage-legend-label,
+.usage-legend-metrics {
+  display: flex;
+  align-items: center;
+}
+
+.usage-legend-item {
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--card-border) 60%, transparent);
+}
+
+.usage-legend-label {
+  gap: 8px;
+  min-width: 0;
+}
+
+.usage-legend-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.usage-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.usage-legend-metrics {
+  gap: 8px;
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  body {
+    padding: 18px;
+  }
+
+  .provider-usage-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .usage-chart-shell {
+    justify-self: center;
+  }
+
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .setting-control {
+    width: 100%;
+  }
+
+  .setting-control input[type="text"],
+  .setting-control select,
+  .setting-control input[type="number"] {
+    width: 100%;
+  }
 }`;
 
 const FOOTER_STYLE_BLOCK = `.footer {

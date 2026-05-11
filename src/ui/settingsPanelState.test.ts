@@ -74,3 +74,31 @@ test('buildSettingsWebviewState leaves most-used provider empty when there is no
   assert.equal(state.usage.mostUsedProvider, undefined);
   assert.equal(state.providers[0].isMostUsed, false);
 });
+
+test('buildSettingsWebviewState keeps per-provider usage counts for distribution views', async () => {
+  const openaiInfo = {
+    ...OLLAMA_INFO,
+    id: 'openai' as const,
+    name: 'OpenAI',
+    icon: '🤖',
+    description: 'api',
+    currentModel: 'gpt-4.1-mini',
+    availableModels: ['gpt-4.1-mini'],
+    requiresApiKey: true,
+  };
+
+  const state = await buildSettingsWebviewState({
+    getAllProviderInfos: () => [{ ...OLLAMA_INFO }, openaiInfo],
+    getActiveProviderId: () => 'openai',
+    getProviderRequestCount: providerId => (providerId === 'openai' ? 9 : 3),
+    getSetting: <T>(_key: string, defaultValue: T): T => defaultValue,
+  });
+
+  assert.equal(state.providers[0].requestCount, 3);
+  assert.equal(state.providers[1].requestCount, 9);
+  assert.equal(state.providers[0].isMostUsed, false);
+  assert.equal(state.providers[1].isMostUsed, true);
+  assert.equal(state.usage.currentProviderRequests, 9);
+  assert.equal(state.usage.totalRequests, 12);
+  assert.equal(state.usage.mostUsedProvider?.providerId, 'openai');
+});

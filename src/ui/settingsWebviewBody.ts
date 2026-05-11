@@ -5,7 +5,7 @@ const PROVIDER_SECTION_MARKUP_BLOCK = `<h2>🔌 Providers</h2>
 <div class="provider-grid" id="providerGrid">
   <!-- Dynamically populated -->
 </div>
-<div class="settings-note" id="providerUsageSummary">
+<div class="provider-usage-panel" id="providerUsageSummary">
   <!-- Dynamically populated -->
 </div>`;
 

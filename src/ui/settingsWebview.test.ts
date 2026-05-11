@@ -40,6 +40,7 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
 
   assert.match(body, /id="providerGrid"/);
   assert.match(body, /id="providerUsageSummary"/);
+  assert.match(body, /class="provider-usage-panel"/);
   assert.match(body, /id="inlineSettings"/);
   assert.match(body, /id="ollamaSettings"/);
   assert.match(body, /id="commitSettings"/);
@@ -48,6 +49,10 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(body, /quota exhaustion or sign-in expiry/);
 
   assert.match(styles, /\.provider-grid/);
+  assert.match(styles, /\.provider-usage-panel/);
+  assert.match(styles, /\.provider-usage-summary/);
+  assert.match(styles, /\.usage-chart/);
+  assert.match(styles, /@media \(max-width: 720px\)/);
   assert.match(styles, /\.settings-section/);
   assert.match(styles, /\.footer/);
   assert.match(styles, /\.settings-note/);
@@ -57,8 +62,16 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(script, /function getProviderModelControl/);
   assert.match(script, /function getProviderActionsMarkup/);
   assert.match(script, /function formatRequestCount/);
+  assert.match(script, /function formatUsagePercent/);
+  assert.match(script, /function getProviderUsageColor/);
   assert.match(script, /function getProviderUsageMarkup/);
+  assert.match(script, /function getProviderUsageChartMarkup/);
+  assert.match(script, /function getProviderUsageLegendMarkup/);
+  assert.match(script, /function getProviderUsageSummaryMarkup/);
   assert.match(script, /function renderProviderUsageSummary/);
+  assert.match(script, /conic-gradient/);
+  assert.match(script, /Request share by provider/);
+  assert.match(script, /No provider requests yet/);
   assert.doesNotMatch(script, /onclick=/);
   assert.doesNotMatch(script, /onchange=/);
   assert.doesNotMatch(script, /onkeydown=/);
