@@ -1,4 +1,4 @@
-export type DirectProviderId = 'openai' | 'anthropic' | 'gemini';
+export type DirectProviderId = 'openai' | 'openai-compatible' | 'anthropic' | 'gemini';
 
 type FetchLike = (
   url: string,
@@ -27,6 +27,12 @@ const DIRECT_PROVIDER_FALLBACKS: Record<DirectProviderId, string[]> = {
     'gpt-4o',
     'gpt-4o-mini',
     'o4-mini',
+  ],
+  'openai-compatible': [
+    'gpt-oss:20b',
+    'mistral-small:latest',
+    'qwen2.5:3b',
+    'gemma4:e4b',
   ],
   anthropic: [
     'claude-sonnet-4-20250514',
@@ -178,6 +184,27 @@ export async function refreshOpenAIModelCatalog(
     'openai',
     (data.data ?? [])
       .map((entry) => normalizeOpenAIModelId(entry.id ?? ''))
+      .filter((model): model is string => Boolean(model))
+  );
+}
+
+export async function refreshOpenAICompatibleModelCatalog(
+  apiKey: string,
+  baseUrl: string,
+  fetchFn: FetchLike = fetch
+): Promise<string[]> {
+  const response = await fetchFn(`${baseUrl.replace(/\/+$/, '')}/models`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+  const data = await parseJsonResponse<{ data?: Array<{ id?: string }> }>(response);
+
+  return sortByPreferredOrder(
+    'openai-compatible',
+    (data.data ?? [])
+      .map((entry) => (entry.id ?? '').trim())
       .filter((model): model is string => Boolean(model))
   );
 }

@@ -59,11 +59,12 @@ test('provider quick pick is backed by unified model entries', () => {
   assert.match(source, /getMostUsedProviderUsage\(\): ProviderUsageSummary \| undefined \{/);
   assert.match(source, /private hydrateUsageCounts\(\s*storedUsageCounts\?: Partial<Record<ProviderId, number>>\s*\): void \{/);
   assert.match(source, /const usageCount = storedUsageCounts\?\.\[providerId\];/);
-  assert.match(source, /Number\.isFinite\(usageCount\) && usageCount > 0/);
+  assert.match(source, /typeof usageCount === 'number' && Number\.isFinite\(usageCount\) && usageCount > 0/);
+  assert.match(source, /const normalizedUsageCount =/);
   assert.match(source, /Math\.floor\(usageCount\)/);
+  assert.match(source, /this\.usageCounts\[providerId\] = normalizedUsageCount;/);
   assert.match(source, /private async flushPersistedUsageCounts\(\): Promise<void> \{/);
-  assert.match(source, /await this\.usageState\s*\.update\(ProviderManager\.USAGE_STORAGE_KEY, \{ \.\.\.this\.usageCounts \}\)/);
-  assert.match(source, /\.catch\(\(error\) => \{/);
+  assert.match(source, /try \{\s*await this\.usageState\.update\(ProviderManager\.USAGE_STORAGE_KEY, \{ \.\.\.this\.usageCounts \}\);\s*\} catch \(error\) \{/);
   assert.match(source, /private persistUsageCounts\(\): void \{/);
   assert.match(source, /if \(!this\.usageState\) \{\s*return;\s*\}/);
   assert.match(source, /if \(this\.usagePersistTimer\) \{\s*clearTimeout\(this\.usagePersistTimer\);\s*\}/);
@@ -87,6 +88,7 @@ test('provider quick pick is backed by unified model entries', () => {
   assert.match(source, /if \(info\.status === 'unavailable'\) \{/);
   assert.match(source, /description: `Direct API · \$\{usageLabel\}`/);
   assert.match(source, /detail: '\$\(warning\) Unavailable'/);
+  assert.match(source, /const directProviders: ProviderId\[\] = \['anthropic', 'openai', 'openai-compatible', 'gemini', 'ollama'\];/);
   assert.match(source, /const availableModels = info\.availableModels\.length > 0/);
   assert.match(source, /for \(const model of availableModels\)/);
   assert.match(source, /if \(this\.usagePersistTimer\) \{\s*clearTimeout\(this\.usagePersistTimer\);\s*this\.usagePersistTimer = undefined;\s*void this\.flushPersistedUsageCounts\(\);\s*\}/);

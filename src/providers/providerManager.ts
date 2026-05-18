@@ -13,6 +13,7 @@ import { logError } from '../utils/logger';
 import { VscodeLmProvider } from './vscodeLmProvider';
 import { AnthropicProvider } from './anthropicProvider';
 import { OpenAIProvider } from './openaiProvider';
+import { OpenAiCompatibleProvider } from './openAiCompatibleProvider';
 import { GeminiProvider } from './geminiProvider';
 import { OllamaProvider } from './ollamaProvider';
 import {
@@ -55,6 +56,7 @@ export class ProviderManager implements vscode.Disposable {
     'vscode-lm',
     'anthropic',
     'openai',
+    'openai-compatible',
     'gemini',
     'ollama',
   ];
@@ -68,6 +70,7 @@ export class ProviderManager implements vscode.Disposable {
     'vscode-lm': 0,
     anthropic: 0,
     openai: 0,
+    'openai-compatible': 0,
     gemini: 0,
     ollama: 0,
   };
@@ -95,6 +98,7 @@ export class ProviderManager implements vscode.Disposable {
     this.providers.set('vscode-lm', new VscodeLmProvider());
     this.providers.set('anthropic', new AnthropicProvider(authService));
     this.providers.set('openai', new OpenAIProvider(authService));
+    this.providers.set('openai-compatible', new OpenAiCompatibleProvider(authService));
     this.providers.set('gemini', new GeminiProvider(authService));
     this.providers.set('ollama', new OllamaProvider());
 
@@ -406,10 +410,11 @@ export class ProviderManager implements vscode.Disposable {
   ): void {
     for (const providerId of ProviderManager.SESSION_USAGE_PROVIDER_IDS) {
       const usageCount = storedUsageCounts?.[providerId];
-      this.usageCounts[providerId] =
-        Number.isFinite(usageCount) && usageCount > 0
+      const normalizedUsageCount =
+        typeof usageCount === 'number' && Number.isFinite(usageCount) && usageCount > 0
           ? Math.floor(usageCount)
           : 0;
+      this.usageCounts[providerId] = normalizedUsageCount;
     }
   }
 
@@ -418,11 +423,11 @@ export class ProviderManager implements vscode.Disposable {
       return;
     }
 
-    await this.usageState
-      .update(ProviderManager.USAGE_STORAGE_KEY, { ...this.usageCounts })
-      .catch((error) => {
-        logError('Provider usage persistence failed', error);
-      });
+    try {
+      await this.usageState.update(ProviderManager.USAGE_STORAGE_KEY, { ...this.usageCounts });
+    } catch (error) {
+      logError('Provider usage persistence failed', error);
+    }
   }
 
   private persistUsageCounts(): void {
@@ -496,7 +501,7 @@ export class ProviderManager implements vscode.Disposable {
     }
 
     // ── 2. Direct API providers ──
-    const directProviders: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama'];
+    const directProviders: ProviderId[] = ['anthropic', 'openai', 'openai-compatible', 'gemini', 'ollama'];
 
     for (const pid of directProviders) {
       const provider = this.providers.get(pid);

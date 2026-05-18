@@ -13,7 +13,7 @@ import { log, logError, getOutputChannel } from './utils/logger';
 import { getNoPilotStatusBarPresentation } from './ui/statusBarPresentation';
 
 let statusBarItem: vscode.StatusBarItem;
-const PROVIDER_IDS: ProviderId[] = ['vscode-lm', 'anthropic', 'openai', 'gemini', 'ollama'];
+const PROVIDER_IDS: ProviderId[] = ['vscode-lm', 'anthropic', 'openai', 'openai-compatible', 'gemini', 'ollama'];
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   log('Activating extension...');
@@ -180,9 +180,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             await providerManager.refreshProviderState('ollama');
           }
 
+          if (e.affectsConfiguration('nopilot.openaiCompatible.baseUrl')) {
+            await providerManager.refreshProviderState('openai-compatible');
+          }
+
           if (
             (e.affectsConfiguration('nopilot.provider') ||
-              e.affectsConfiguration('nopilot.ollama.endpoint'))
+              e.affectsConfiguration('nopilot.ollama.endpoint') ||
+              e.affectsConfiguration('nopilot.openaiCompatible.baseUrl'))
           ) {
             await providerManager.reconcileConfiguredProvider();
           }
