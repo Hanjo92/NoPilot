@@ -66,7 +66,7 @@ export interface InlineRequestStatus {
   message?: string;
 }
 
-export type ProviderId = 'vscode-lm' | 'anthropic' | 'openai' | 'gemini' | 'ollama';
+export type ProviderId = 'vscode-lm' | 'anthropic' | 'openai' | 'openai-compatible' | 'gemini' | 'ollama';
 
 export type ProviderStatus = 'ready' | 'needs-key' | 'unavailable';
 
@@ -148,6 +148,7 @@ export interface WebviewState {
     maxSuffixLines: number;
     ollamaEndpoint: string;
     ollamaRemoteMode: OllamaRemoteMode;
+    openAiCompatibleBaseUrl: string;
     commitLanguage: string;
     commitFormat: string;
   };

@@ -101,6 +101,7 @@
             "vscode-lm",
             "anthropic",
             "openai",
+            "openai-compatible",
             "gemini",
             "ollama"
           ],
@@ -177,6 +178,16 @@
           "type": "string",
           "default": "gpt-5-mini",
           "description": "OpenAI model to use"
+        },
+        "nopilot.openaiCompatible.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI-compatible API base URL (example: https://llm.example.com/v1)"
+        },
+        "nopilot.openaiCompatible.model": {
+          "type": "string",
+          "default": "gpt-oss:20b",
+          "description": "OpenAI-compatible model to use"
         },
         "nopilot.gemini.model": {
           "type": "string",

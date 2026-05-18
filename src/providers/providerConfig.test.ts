@@ -14,7 +14,7 @@ test('provider config helper maps providers to persisted model keys', () => {
   const source = readProviderConfigSource();
 
   assert.match(source, /export function getProviderModelConfigKey\(providerId: ProviderId\): string \{/);
-  assert.match(source, /return providerId === 'vscode-lm' \? 'model' : `\$\{providerId\}\.model`;/);
+  assert.match(source, /return providerId === 'vscode-lm' \? 'model' : `\$\{getProviderConfigPrefix\(providerId\)\}\.model`;/);
 });
 
 test('provider config helper maps providers to VS Code setting scopes', () => {
@@ -23,5 +23,5 @@ test('provider config helper maps providers to VS Code setting scopes', () => {
   assert.match(source, /export function getProviderModelSettingScope\(providerId: ProviderId\): string \{/);
   assert.match(source, /return providerId === 'vscode-lm'/);
   assert.match(source, /\? 'nopilot\.model'/);
-  assert.match(source, /: `nopilot\.\$\{providerId\}\.model`;/);
+  assert.match(source, /: `nopilot\.\$\{getProviderConfigPrefix\(providerId\)\}\.model`;/);
 });

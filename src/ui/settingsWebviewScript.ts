@@ -27,6 +27,7 @@ function render(state) {
   renderProviderUsageSummary(state);
   renderInlineSettings(state.settings);
   renderOllamaSettings(state);
+  renderOpenAiCompatibleSettings(state.settings);
   renderCommitSettings(state.settings);
 }`;
 
@@ -106,6 +107,7 @@ function getProviderUsageColor(providerId) {
     'vscode-lm': 'var(--usage-vscode-lm)',
     anthropic: 'var(--usage-anthropic)',
     openai: 'var(--usage-openai)',
+    'openai-compatible': 'var(--usage-openai)',
     gemini: 'var(--usage-gemini)',
     ollama: 'var(--usage-ollama)',
   };
@@ -422,6 +424,16 @@ function getOllamaSettingsMarkup(state) {
   ]);
 }
 
+function getOpenAiCompatibleSettingsMarkup(settings) {
+  return renderSettingRows([
+    {
+      label: 'Base URL',
+      description: 'OpenAI-compatible base URL (example: https://llm.example.com/v1)',
+      control: textInput('openaiCompatible.baseUrl', settings.openAiCompatibleBaseUrl, 'https://llm.example.com/v1'),
+    },
+  ]);
+}
+
 function renderInlineSettings(settings) {
   const container = document.getElementById('inlineSettings');
   container.innerHTML = getInlineSettingsMarkup(settings);
@@ -430,6 +442,11 @@ function renderInlineSettings(settings) {
 function renderOllamaSettings(state) {
   const container = document.getElementById('ollamaSettings');
   container.innerHTML = getOllamaSettingsMarkup(state);
+}
+
+function renderOpenAiCompatibleSettings(settings) {
+  const container = document.getElementById('openAiCompatibleSettings');
+  container.innerHTML = getOpenAiCompatibleSettingsMarkup(settings);
 }
 
 function renderCommitSettings(settings) {

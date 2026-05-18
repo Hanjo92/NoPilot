@@ -23,7 +23,7 @@ function assertAppearsInOrder(source: string, snippets: string[]): void {
 test('extension configuration listener refreshes provider state for external model and Ollama endpoint changes', () => {
   const source = readExtensionSource();
 
-  assert.match(source, /const PROVIDER_IDS: ProviderId\[\] = \['vscode-lm', 'anthropic', 'openai', 'gemini', 'ollama'\];/);
+  assert.match(source, /const PROVIDER_IDS: ProviderId\[\] = \['vscode-lm', 'anthropic', 'openai', 'openai-compatible', 'gemini', 'ollama'\];/);
   assert.match(source, /const providerManager = new ProviderManager\(authService, context\.globalState\);/);
   assert.match(source, /void \(async \(\) => \{/);
   assert.match(source, /await providerManager\.reconcileConfiguredProvider\(\);/);
@@ -37,7 +37,10 @@ test('extension configuration listener refreshes provider state for external mod
   assertAppearsInOrder(source, [
     "if (e.affectsConfiguration('nopilot.ollama.endpoint')) {",
     "await providerManager.refreshProviderState('ollama');",
-    "e.affectsConfiguration('nopilot.ollama.endpoint'))",
+    "if (e.affectsConfiguration('nopilot.openaiCompatible.baseUrl')) {",
+    "await providerManager.refreshProviderState('openai-compatible');",
+    "e.affectsConfiguration('nopilot.ollama.endpoint') ||",
+    "e.affectsConfiguration('nopilot.openaiCompatible.baseUrl'))",
     'await providerManager.reconcileConfiguredProvider();',
   ]);
   assert.match(source, /for \(const providerId of PROVIDER_IDS\) \{/);

@@ -22,6 +22,11 @@ const OLLAMA_SECTION_MARKUP_BLOCK = `<h2>🦙 Ollama</h2>
   <!-- Dynamically populated -->
 </div>`;
 
+const OPENAI_COMPATIBLE_SECTION_MARKUP_BLOCK = `<h2>🧩 OpenAI-Compatible</h2>
+<div class="settings-section" id="openAiCompatibleSettings">
+  <!-- Dynamically populated -->
+</div>`;
+
 const COMMIT_SECTION_MARKUP_BLOCK = `<h2>💬 Commit Messages</h2>
 <div class="settings-section" id="commitSettings">
   <!-- Dynamically populated -->
@@ -36,6 +41,7 @@ const BODY_BLOCKS = [
   PROVIDER_SECTION_MARKUP_BLOCK,
   INLINE_SECTION_MARKUP_BLOCK,
   OLLAMA_SECTION_MARKUP_BLOCK,
+  OPENAI_COMPATIBLE_SECTION_MARKUP_BLOCK,
   COMMIT_SECTION_MARKUP_BLOCK,
   FOOTER_MARKUP_BLOCK,
 ];

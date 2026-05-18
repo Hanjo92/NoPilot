@@ -11,6 +11,7 @@ export class AuthService {
     'vscode-lm',
     'anthropic',
     'openai',
+    'openai-compatible',
     'gemini',
     'ollama',
   ];

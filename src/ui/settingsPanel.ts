@@ -117,10 +117,12 @@ export class SettingsPanel {
     const requestVersion = ++this.stateRequestVersion;
     const config = vscode.workspace.getConfiguration('nopilot');
     const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
+    const openAiCompatibleConfig = vscode.workspace.getConfiguration('nopilot.openaiCompatible');
 
     this.isRefreshingProviderStateForWebview = true;
     try {
       await this.providerManager.refreshProviderState('ollama');
+      await this.providerManager.refreshProviderState('openai-compatible');
     } finally {
       this.isRefreshingProviderStateForWebview = false;
     }
@@ -137,6 +139,10 @@ export class SettingsPanel {
 
         if (key === 'ollama.remoteMode') {
           return ollamaConfig.get('remoteMode', defaultValue);
+        }
+
+        if (key === 'openaiCompatible.baseUrl') {
+          return openAiCompatibleConfig.get('baseUrl', defaultValue);
         }
 
         return config.get(key, defaultValue);
@@ -176,6 +182,16 @@ export class SettingsPanel {
             const settingName = key === 'ollama.endpoint' ? 'endpoint' : 'remoteMode';
             await ollamaConfig.update(
               settingName,
+              String(value),
+              vscode.ConfigurationTarget.Global
+            );
+            return;
+          }
+
+          if (key === 'openaiCompatible.baseUrl') {
+            const compatibleConfig = vscode.workspace.getConfiguration('nopilot.openaiCompatible');
+            await compatibleConfig.update(
+              'baseUrl',
               String(value),
               vscode.ConfigurationTarget.Global
             );
