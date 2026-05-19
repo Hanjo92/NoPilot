@@ -53,7 +53,7 @@ const SCRIPT_PROVIDER_HELPER_BLOCK = `function getProviderStatusBadge(provider, 
 
 function getProviderModelControl(provider) {
   if (provider.availableModels.length === 0) {
-    return '<span style="opacity:0.5">' + (provider.currentModel || 'Auto-detect') + '</span>';
+    return '<span class="model-muted">' + (provider.currentModel || 'Auto-detect') + '</span>';
   }
 
   return '<select data-model-provider-id="' + provider.id + '">'
@@ -102,17 +102,17 @@ function formatUsagePercent(requestCount, totalRequests) {
   return normalizedPercent + '%';
 }
 
-function getProviderUsageColor(providerId) {
-  const usageColors = {
-    'vscode-lm': 'var(--usage-vscode-lm)',
-    anthropic: 'var(--usage-anthropic)',
-    openai: 'var(--usage-openai)',
-    'openai-compatible': 'var(--usage-openai)',
-    gemini: 'var(--usage-gemini)',
-    ollama: 'var(--usage-ollama)',
+function getProviderUsageClass(providerId) {
+  const usageClasses = {
+    'vscode-lm': 'usage-color-vscode-lm',
+    anthropic: 'usage-color-anthropic',
+    openai: 'usage-color-openai',
+    'openai-compatible': 'usage-color-openai',
+    gemini: 'usage-color-gemini',
+    ollama: 'usage-color-ollama',
   };
 
-  return usageColors[providerId] || 'var(--usage-fallback)';
+  return usageClasses[providerId] || 'usage-color-fallback';
 }
 
 function getProviderUsageMarkup(provider) {
@@ -151,28 +151,26 @@ const SCRIPT_PROVIDER_RENDER_BLOCK = `function renderProviders(providers, active
 }
 
 function getProviderUsageChartMarkup(providers, totalRequests) {
-  let startDegrees = 0;
+  let offsetPercent = 0;
   const segments = providers
     .filter(provider => provider.requestCount > 0)
     .map(provider => {
-      const segmentDegrees = (provider.requestCount / totalRequests) * 360;
-      const endDegrees = startDegrees + segmentDegrees;
-      const segment = getProviderUsageColor(provider.id)
-        + ' '
-        + startDegrees.toFixed(1)
-        + 'deg '
-        + endDegrees.toFixed(1)
-        + 'deg';
-      startDegrees = endDegrees;
+      const segmentPercent = (provider.requestCount / totalRequests) * 100;
+      const gapPercent = Math.max(100 - segmentPercent, 0);
+      const segment = '<circle class="usage-chart-segment ' + getProviderUsageClass(provider.id) + '"'
+        + ' cx="50" cy="50" r="42" pathLength="100"'
+        + ' stroke-dasharray="' + segmentPercent.toFixed(4) + ' ' + gapPercent.toFixed(4) + '"'
+        + ' stroke-dashoffset="' + (-offsetPercent).toFixed(4) + '"></circle>';
+      offsetPercent += segmentPercent;
       return segment;
     });
 
-  const gradient = segments.length > 0
-    ? 'conic-gradient(' + segments.join(', ') + ')'
-    : 'var(--usage-track)';
-
   return '<div class="usage-chart-shell">'
-    + '<div class="usage-chart" style="background:' + gradient + ';">'
+    + '<div class="usage-chart">'
+    + '  <svg class="usage-chart-svg" viewBox="0 0 100 100" role="img" aria-label="Provider request share">'
+    + '    <circle class="usage-chart-track" cx="50" cy="50" r="42" pathLength="100"></circle>'
+    + segments.join('')
+    + '  </svg>'
     + '  <div class="usage-chart-hole">'
     + '    <span class="usage-chart-total-label">Total</span>'
     + '    <strong class="usage-chart-total-value">' + totalRequests + '</strong>'
@@ -187,7 +185,7 @@ function getProviderUsageLegendMarkup(providers, totalRequests) {
     + providers.map(provider =>
         '<div class="usage-legend-item">'
         + '  <span class="usage-legend-label">'
-        + '    <span class="usage-legend-dot" style="background:' + getProviderUsageColor(provider.id) + ';"></span>'
+        + '    <span class="usage-legend-dot ' + getProviderUsageClass(provider.id) + '"></span>'
         + '    <span class="usage-legend-name">' + provider.icon + ' ' + provider.name + '</span>'
         + '  </span>'
         + '  <span class="usage-legend-metrics">'

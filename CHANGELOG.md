@@ -6,9 +6,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-19
+
 ### Added
 
+- Added OpenAI-compatible provider support with separate base URL, model, and API key handling.
 - Settings usage summary now includes a donut chart that shows each provider's share of total requests.
+
+### Fixed
+
+- Rendered the settings usage chart without CSP-blocked inline style attributes.
 
 ## [0.2.1] - 2026-05-10
 

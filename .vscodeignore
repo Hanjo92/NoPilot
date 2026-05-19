@@ -6,6 +6,7 @@ node_modules/**
 .gitignore
 .github/**
 docs/superpowers/**
+docs/workpads/**
 .superpowers/**
 .worktrees/**
 *.vsix

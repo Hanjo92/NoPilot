@@ -22,12 +22,14 @@ test('settings webview only shows Activate for ready providers', () => {
   assert.match(source, /setOllamaRefreshPending\(false, ''\);/);
   assert.match(source, /function formatRequestCount\(count\) \{/);
   assert.match(source, /function formatUsagePercent\(requestCount, totalRequests\) \{/);
-  assert.match(source, /function getProviderUsageColor\(providerId\) \{/);
+  assert.match(source, /function getProviderUsageClass\(providerId\) \{/);
   assert.match(source, /function getProviderUsageMarkup\(provider\) \{/);
   assert.match(source, /formatRequestCount\(provider\.requestCount\)/);
   assert.match(source, /provider\.isMostUsed \? '<span class="usage-badge">Top<\/span>' : ''/);
   assert.match(source, /function getProviderUsageChartMarkup\(providers, totalRequests\) \{/);
-  assert.match(source, /conic-gradient\('/);
+  assert.match(source, /usage-chart-svg/);
+  assert.match(source, /stroke-dasharray/);
+  assert.doesNotMatch(source, /style=/);
   assert.match(source, /function getProviderUsageLegendMarkup\(providers, totalRequests\) \{/);
   assert.match(source, /function getProviderUsageSummaryMarkup\(state\) \{/);
   assert.match(source, /state\.usage\.totalRequests === 0/);

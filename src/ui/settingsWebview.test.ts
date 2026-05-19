@@ -44,7 +44,7 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(body, /id="inlineSettings"/);
   assert.match(body, /id="ollamaSettings"/);
   assert.match(body, /id="commitSettings"/);
-  assert.match(body, /NoPilot v0\.2\.1/);
+  assert.match(body, /NoPilot v0\.3\.0/);
   assert.match(body, /best-effort/);
   assert.match(body, /quota exhaustion or sign-in expiry/);
 
@@ -52,6 +52,8 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(styles, /\.provider-usage-panel/);
   assert.match(styles, /\.provider-usage-summary/);
   assert.match(styles, /\.usage-chart/);
+  assert.match(styles, /\.usage-chart-segment/);
+  assert.match(styles, /\.usage-color-openai/);
   assert.match(styles, /@media \(max-width: 720px\)/);
   assert.match(styles, /\.settings-section/);
   assert.match(styles, /\.footer/);
@@ -63,15 +65,18 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(script, /function getProviderActionsMarkup/);
   assert.match(script, /function formatRequestCount/);
   assert.match(script, /function formatUsagePercent/);
-  assert.match(script, /function getProviderUsageColor/);
+  assert.match(script, /function getProviderUsageClass/);
   assert.match(script, /function getProviderUsageMarkup/);
   assert.match(script, /function getProviderUsageChartMarkup/);
   assert.match(script, /function getProviderUsageLegendMarkup/);
   assert.match(script, /function getProviderUsageSummaryMarkup/);
   assert.match(script, /function renderProviderUsageSummary/);
-  assert.match(script, /conic-gradient/);
+  assert.match(script, /usage-chart-svg/);
+  assert.match(script, /stroke-dasharray/);
   assert.match(script, /Request share by provider/);
   assert.match(script, /No provider requests yet/);
+  assert.doesNotMatch(body, /style=/);
+  assert.doesNotMatch(script, /style=/);
   assert.doesNotMatch(script, /onclick=/);
   assert.doesNotMatch(script, /onchange=/);
   assert.doesNotMatch(script, /onkeydown=/);

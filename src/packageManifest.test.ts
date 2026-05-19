@@ -30,6 +30,10 @@ function readManifest(): ExtensionManifest {
   return JSON.parse(readFileSync(manifestPath, 'utf8')) as ExtensionManifest;
 }
 
+function readVsCodeIgnore(): string {
+  return readFileSync(path.resolve(process.cwd(), '.vscodeignore'), 'utf8');
+}
+
 test('manifest activates on startup and first language editing sessions', () => {
   const manifest = readManifest();
   const activationEvents = manifest.activationEvents ?? [];
@@ -44,6 +48,15 @@ test('manifest includes marketplace icon metadata', () => {
   assert.equal(manifest.icon, 'media/icon.png');
   assert.equal(manifest.galleryBanner?.color, '#2563eb');
   assert.ok(existsSync(path.resolve(process.cwd(), manifest.icon ?? '')));
+});
+
+test('package ignore excludes internal planning artifacts', () => {
+  const vscodeIgnore = readVsCodeIgnore();
+
+  assert.match(vscodeIgnore, /^docs\/superpowers\/\*\*$/m);
+  assert.match(vscodeIgnore, /^docs\/workpads\/\*\*$/m);
+  assert.match(vscodeIgnore, /^\.superpowers\/\*\*$/m);
+  assert.match(vscodeIgnore, /^\.worktrees\/\*\*$/m);
 });
 
 test('manifest exposes Ollama remote mode setting', () => {

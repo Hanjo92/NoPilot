@@ -139,6 +139,10 @@ const PROVIDER_CARD_STYLE_BLOCK = `.provider-grid {
   color: var(--vscode-descriptionForeground);
 }
 
+.provider-card .model-muted {
+  opacity: 0.5;
+}
+
 .provider-card .card-usage {
   display: flex;
   align-items: center;
@@ -383,10 +387,55 @@ const SETTINGS_NOTE_STYLE_BLOCK = `.settings-note {
   width: 148px;
   height: 148px;
   border-radius: 50%;
+  position: relative;
   display: grid;
   place-items: center;
-  background: var(--usage-track);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-border) 65%, transparent);
+}
+
+.usage-chart-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.usage-chart-track,
+.usage-chart-segment {
+  fill: none;
+  stroke-width: 14;
+}
+
+.usage-chart-track {
+  stroke: var(--usage-track);
+}
+
+.usage-chart-segment {
+  stroke-linecap: butt;
+}
+
+.usage-chart-segment.usage-color-vscode-lm {
+  stroke: var(--usage-vscode-lm);
+}
+
+.usage-chart-segment.usage-color-anthropic {
+  stroke: var(--usage-anthropic);
+}
+
+.usage-chart-segment.usage-color-openai {
+  stroke: var(--usage-openai);
+}
+
+.usage-chart-segment.usage-color-gemini {
+  stroke: var(--usage-gemini);
+}
+
+.usage-chart-segment.usage-color-ollama {
+  stroke: var(--usage-ollama);
+}
+
+.usage-chart-segment.usage-color-fallback {
+  stroke: var(--usage-fallback);
 }
 
 .usage-chart-hole {
@@ -400,6 +449,9 @@ const SETTINGS_NOTE_STYLE_BLOCK = `.settings-note {
   justify-content: center;
   text-align: center;
   gap: 2px;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--card-border) 65%, transparent);
 }
 
 .usage-chart-total-label,
@@ -487,6 +539,30 @@ const SETTINGS_NOTE_STYLE_BLOCK = `.settings-note {
   height: 10px;
   border-radius: 999px;
   flex: 0 0 auto;
+}
+
+.usage-legend-dot.usage-color-vscode-lm {
+  background: var(--usage-vscode-lm);
+}
+
+.usage-legend-dot.usage-color-anthropic {
+  background: var(--usage-anthropic);
+}
+
+.usage-legend-dot.usage-color-openai {
+  background: var(--usage-openai);
+}
+
+.usage-legend-dot.usage-color-gemini {
+  background: var(--usage-gemini);
+}
+
+.usage-legend-dot.usage-color-ollama {
+  background: var(--usage-ollama);
+}
+
+.usage-legend-dot.usage-color-fallback {
+  background: var(--usage-fallback);
 }
 
 .usage-legend-metrics {
