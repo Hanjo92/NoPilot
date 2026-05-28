@@ -21,4 +21,5 @@ test('settings panel state derives provider usage summaries for the webview', ()
   assert.match(source, /const currentProviderRequests =/);
   assert.match(source, /const totalRequests = providersWithUsageFlags\.reduce\(/);
   assert.match(source, /usage: \{\s*currentProviderRequests,\s*totalRequests,\s*mostUsedProvider,\s*\},/);
+  assert.match(source, /commitCustomPrompt: source\.getSetting\('commitMessage\.customPrompt', ''\),/);
 });

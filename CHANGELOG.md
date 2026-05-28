@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Custom `nopilot.commitMessage.customPrompt` support for AI-generated commit messages, including `{{diff}}` and `{{language}}` placeholders and settings UI support.
+
 ## [0.3.0] - 2026-05-19
 
 ### Added

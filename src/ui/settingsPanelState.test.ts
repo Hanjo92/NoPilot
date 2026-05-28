@@ -32,6 +32,7 @@ test('buildSettingsWebviewState returns provider info and settings without mutat
         'ollama.remoteMode': 'forced-on',
         'commitMessage.language': 'en',
         'commitMessage.format': 'conventional',
+        'commitMessage.customPrompt': 'Use {{language}}.\n{{diff}}',
       };
 
       return (values[key] as T | undefined) ?? defaultValue;
@@ -42,6 +43,7 @@ test('buildSettingsWebviewState returns provider info and settings without mutat
   assert.equal(state.settings.ollamaEndpoint, 'http://127.0.0.1:11434');
   assert.equal(state.settings.ollamaRemoteMode, 'forced-on');
   assert.equal(state.settings.qualityProfile, 'rich');
+  assert.equal(state.settings.commitCustomPrompt, 'Use {{language}}.\n{{diff}}');
   assert.deepEqual(state.providers[0].availableModels, ['qwen2.5-coder:7b']);
   assert.equal(state.providers[0].requestCount, 6);
   assert.equal(state.providers[0].isMostUsed, true);
@@ -59,6 +61,7 @@ test('buildSettingsWebviewState uses the manifest-aligned debounce default when 
   });
 
   assert.equal(state.settings.debounceMs, 500);
+  assert.equal(state.settings.commitCustomPrompt, '');
 });
 
 test('buildSettingsWebviewState leaves most-used provider empty when there is no usage yet', async () => {

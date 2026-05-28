@@ -79,6 +79,7 @@ export async function buildSettingsWebviewState(
       openAiCompatibleBaseUrl: source.getSetting('openaiCompatible.baseUrl', ''),
       commitLanguage: source.getSetting('commitMessage.language', 'en'),
       commitFormat: source.getSetting('commitMessage.format', 'conventional'),
+      commitCustomPrompt: source.getSetting('commitMessage.customPrompt', ''),
     },
   };
 }

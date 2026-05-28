@@ -351,7 +351,19 @@ function getCommitSettingsMarkup(settings) {
       description: 'Commit message format',
       control: selectInput('commitMessage.format', settings.commitFormat, COMMIT_FORMAT_OPTIONS),
     },
-  ]);
+    {
+      label: 'Custom Prompt',
+      description: 'Optional template with {{diff}} and {{language}}. When set, this overrides Format.',
+      control: textareaInput(
+        'commitMessage.customPrompt',
+        settings.commitCustomPrompt,
+        'Generate a commit message in {{language}} for this diff:\\n\\n{{diff}}',
+        6
+      ),
+    },
+  ]) + '<div class="settings-note">'
+    + '<strong>Template placeholders:</strong> Use <code>{{diff}}</code> for the git diff and <code>{{language}}</code> for the resolved commit message language. A non-empty custom prompt overrides the selected format.'
+    + '</div>';
 }
 
 function getOllamaProvider(state) {
@@ -466,6 +478,15 @@ function settingRow(label, desc, control) {
     + '</div>';
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function toggleSwitch(key, checked) {
   return '<label class="toggle">'
     + '<input type="checkbox"' + (checked ? ' checked' : '')
@@ -474,21 +495,28 @@ function toggleSwitch(key, checked) {
 }
 
 function numberInput(key, value, min, max) {
-  return '<input type="number" value="' + value + '" min="' + min + '" max="' + max + '"'
+  return '<input type="number" value="' + escapeHtml(value) + '" min="' + min + '" max="' + max + '"'
     + ' data-setting-key="' + key + '">';
 }
 
 function ollamaEndpointControl(value, buttonLabel) {
   return '<div class="ollama-endpoint-control">'
-    + '<input id="ollamaEndpointInput" type="text" value="' + value + '" placeholder="http://localhost:11434"'
+    + '<input id="ollamaEndpointInput" type="text" value="' + escapeHtml(value) + '" placeholder="http://localhost:11434"'
     + ' data-setting-key="ollama.endpoint">'
     + '<button class="primary" data-action="refreshOllama">' + buttonLabel + '</button>'
     + '</div>';
 }
 
 function textInput(key, value, placeholder) {
-  return '<input type="text" value="' + value + '" placeholder="' + placeholder + '"'
+  return '<input type="text" value="' + escapeHtml(value) + '" placeholder="' + escapeHtml(placeholder) + '"'
     + ' data-setting-key="' + key + '">';
+}
+
+function textareaInput(key, value, placeholder, rows) {
+  return '<textarea rows="' + rows + '" placeholder="' + escapeHtml(placeholder) + '"'
+    + ' data-setting-key="' + key + '">'
+    + escapeHtml(value)
+    + '</textarea>';
 }
 
 function clampNumberInputValue(value, min, max) {
@@ -508,8 +536,8 @@ function clampNumberInputValue(value, min, max) {
 function selectInput(key, value, options) {
   return '<select data-setting-key="' + key + '">'
     + options.map(o =>
-        '<option value="' + o.value + '"' + (o.value === value ? ' selected' : '') + '>'
-        + o.label + '</option>'
+        '<option value="' + escapeHtml(o.value) + '"' + (o.value === value ? ' selected' : '') + '>'
+        + escapeHtml(o.label) + '</option>'
       ).join('')
     + '</select>';
 
@@ -570,7 +598,7 @@ const SCRIPT_INTERACTION_BLOCK = `function ensureInteractionHandlersBound() {
 
   document.addEventListener('change', event => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) {
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
       return;
     }
 
@@ -604,6 +632,11 @@ const SCRIPT_INTERACTION_BLOCK = `function ensureInteractionHandlersBound() {
       }
 
       updateSetting(settingKey, normalizedValue);
+      return;
+    }
+
+    if (target instanceof HTMLTextAreaElement) {
+      updateSetting(settingKey, target.value);
       return;
     }
 

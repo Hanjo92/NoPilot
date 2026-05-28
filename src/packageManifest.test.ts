@@ -57,6 +57,9 @@ test('package ignore excludes internal planning artifacts', () => {
   assert.match(vscodeIgnore, /^docs\/workpads\/\*\*$/m);
   assert.match(vscodeIgnore, /^\.superpowers\/\*\*$/m);
   assert.match(vscodeIgnore, /^\.worktrees\/\*\*$/m);
+  assert.match(vscodeIgnore, /^GH-\*-\w+\.md$/m);
+  assert.match(vscodeIgnore, /^GH-\*-\w+\.sh$/m);
+  assert.match(vscodeIgnore, /^GH-\*-\w+\.test\.sh$/m);
 });
 
 test('manifest exposes Ollama remote mode setting', () => {
@@ -86,6 +89,11 @@ test('manifest keeps core inline and commit defaults aligned', () => {
   assert.equal(properties['nopilot.inline.maxSuffixLines']?.default, 20);
   assert.equal(properties['nopilot.commitMessage.language']?.default, 'en');
   assert.equal(properties['nopilot.commitMessage.format']?.default, 'conventional');
+  assert.equal(properties['nopilot.commitMessage.customPrompt']?.default, '');
+  assert.match(
+    properties['nopilot.commitMessage.customPrompt']?.description ?? '',
+    /\{\{diff\}\}.*\{\{language\}\}/
+  );
 });
 
 test('manifest copy reflects model-level selection behavior', () => {

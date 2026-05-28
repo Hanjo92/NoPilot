@@ -9,6 +9,9 @@ docs/superpowers/**
 docs/workpads/**
 .superpowers/**
 .worktrees/**
+GH-*-comment.md
+GH-*-finish.sh
+GH-*-finish.test.sh
 *.vsix
 CONTRIBUTING.md
 CODE_OF_CONDUCT.md

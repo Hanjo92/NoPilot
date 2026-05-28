@@ -14,7 +14,7 @@ NoPilot brings inline code completion, selection-based inline edits, and AI comm
 - **Remote Ollama friendly**: Auto-detect remote or slow Ollama behavior, trim automatic inline requests, and show request status when the endpoint is slow or unreachable.
 - **Context-aware suggestions**: Reuse local cache entries, current-file context, nearby structure, and workspace symbols when the selected profile allows it.
 - **Inline Chat**: Select code, press `Ctrl+I` or `Cmd+I`, and ask NoPilot to edit or replace it in place.
-- **AI commit messages**: Generate conventional or simple commit messages from your Git diff.
+- **AI commit messages**: Generate conventional or simple commit messages from your Git diff, or override the prompt with your own template.
 - **Local-first secrets**: Provider keys are stored through VS Code SecretStorage, not plain settings JSON.
 
 ## Getting Started
@@ -69,6 +69,13 @@ You can customize NoPilot's behavior fully via **VS Code Settings > Extensions >
 - `nopilot.gemini.model`: Gemini model.
 - `nopilot.commitMessage.language`: Commit message language, such as `en`, `ko`, or `ja`.
 - `nopilot.commitMessage.format`: `conventional` or `simple`.
+- `nopilot.commitMessage.customPrompt`: Optional custom prompt template. Supports `{{diff}}` and `{{language}}`, and overrides the preset format when set.
+
+Example:
+
+```json
+"nopilot.commitMessage.customPrompt": "Generate a commit message in {{language}} using the format '<type>(<scope>): <subject>'. Use one of feat, fix, docs, refactor, test, or chore. Include a Jira ticket from the branch name when present.\n\n{{diff}}"
+```
 
 ## OpenAI-Compatible Tips
 

@@ -55,8 +55,11 @@ export class CommitMessageGenerator {
     const config = vscode.workspace.getConfiguration('nopilot.commitMessage');
     const language = config.get<string>('language', 'en');
     const format = config.get<'conventional' | 'simple'>('format', 'conventional');
+    const configuredCustomPrompt = config.get<string>('customPrompt', '');
+    const customPrompt =
+      configuredCustomPrompt.trim().length > 0 ? configuredCustomPrompt : undefined;
 
-    const request: CommitMessageRequest = { diff, language, format };
+    const request: CommitMessageRequest = { diff, language, format, customPrompt };
 
     // Show progress
     await vscode.window.withProgress(
