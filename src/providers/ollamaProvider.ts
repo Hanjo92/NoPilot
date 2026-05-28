@@ -102,7 +102,10 @@ export class OllamaProvider implements AIProvider {
     }
 
     const abortController = new AbortController();
-    const disposable = token.onCancellationRequested(() => abortController.abort());
+    const disposable =
+      request.mode === 'automatic'
+        ? new vscode.Disposable(() => undefined)
+        : token.onCancellationRequested(() => abortController.abort());
 
     try {
       const response = await fetch(`${this.endpoint}/api/generate`, {

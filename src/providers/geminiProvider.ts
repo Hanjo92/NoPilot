@@ -113,7 +113,7 @@ export class GeminiProvider implements AIProvider {
 
     // Gemini SDK doesn't support AbortController directly
     // so we check cancellation before and after the call
-    if (token.isCancellationRequested) {
+    if (request.mode !== 'automatic' && token.isCancellationRequested) {
       return { text: '' };
     }
 
@@ -126,7 +126,7 @@ export class GeminiProvider implements AIProvider {
     });
     const response = result.response;
 
-    if (token.isCancellationRequested) {
+    if (request.mode !== 'automatic' && token.isCancellationRequested) {
       return { text: '' };
     }
 

@@ -102,13 +102,28 @@ test('inline provider records remote success only after usable completion valida
   assertAppearsInOrder(source, [
     'const response = await this.providerManager.complete(request, token);',
     'if (requestId !== this.requestCounter)',
-    'if (token.isCancellationRequested)',
     'if (!response.text)',
     'const cleanedText = cleanInlineCompletionText',
     'if (!cleanedText)',
     'this.ollamaRemoteTracker.recordSuccess(providerDurationMs);',
+    'this.cacheInlineCompletion(cacheKey, cleanedText);',
     'return [',
   ]);
+});
+
+test('inline provider refreshes from cache when an automatic completion arrives after cancellation', () => {
+  const source = readSource('src/features/inlineCompletionProvider.ts');
+
+  assert.match(
+    source,
+    /readonly onDidChangeInlineCompletionItems = this\.inlineCompletionItemsChangeEmitter\.event;/
+  );
+  assert.match(source, /private cacheInlineCompletion\(cacheKey: string, text: string\): void/);
+  assert.match(
+    source,
+    /if \(token\.isCancellationRequested\) \{[\s\S]*?if \(request\.mode === 'automatic' && requestId === this\.requestCounter\) \{[\s\S]*?this\.inlineCompletionItemsChangeEmitter\.fire\(\);[\s\S]*?\}[\s\S]*?return undefined;[\s\S]*?\}/
+  );
+  assert.match(source, /this\.inlineCompletionItemsChangeEmitter\.dispose\(\);/);
 });
 
 test('inline provider re-checks freshness after async request assembly before lifecycle starts', () => {

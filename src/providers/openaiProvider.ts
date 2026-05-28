@@ -111,7 +111,10 @@ export class OpenAIProvider implements AIProvider {
     await this.ensureClient();
     const inlineConfig = buildInlineCompletionConfig(this._info.id, request);
     const abortController = new AbortController();
-    const disposable = token.onCancellationRequested(() => abortController.abort());
+    const disposable =
+      request.mode === 'automatic'
+        ? new vscode.Disposable(() => undefined)
+        : token.onCancellationRequested(() => abortController.abort());
 
     try {
       const response = await this.client!.chat.completions.create(
