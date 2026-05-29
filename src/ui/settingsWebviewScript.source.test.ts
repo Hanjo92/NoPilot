@@ -37,6 +37,10 @@ test('settings webview only shows Activate for ready providers', () => {
   assert.match(source, /renderProviderUsageSummary\(state\);/);
   assert.match(source, /const summary = document\.getElementById\('providerUsageSummary'\);/);
   assert.match(source, /summary\.innerHTML = getProviderUsageSummaryMarkup\(state\);/);
+  assert.match(source, /function switchProvider\(id\)\s+\{/);
+  assert.match(source, /currentState = Object\.assign\(\{\}, currentState, \{ activeProviderId: id \}\);/);
+  assert.match(source, /render\(currentState\);/);
+  assert.match(source, /vscode\.postMessage\(\{ command: 'switchProvider', providerId: id \}\);/);
   assert.match(source, /state\.usage\.currentProviderRequests/);
   assert.match(source, /state\.usage\.mostUsedProvider/);
   assert.match(source, /state\.usage\.totalRequests/);

@@ -523,7 +523,14 @@ function setOllamaRefreshPending(pending, endpointValue) {
   }
 }`;
 
-const SCRIPT_ACTION_BLOCK = `function switchProvider(id)  { vscode.postMessage({ command: 'switchProvider', providerId: id }); }
+const SCRIPT_ACTION_BLOCK = `function switchProvider(id)  {
+  if (currentState && currentState.activeProviderId !== id) {
+    currentState = Object.assign({}, currentState, { activeProviderId: id });
+    render(currentState);
+  }
+
+  vscode.postMessage({ command: 'switchProvider', providerId: id });
+}
 function setApiKey(id)       { vscode.postMessage({ command: 'setApiKey', providerId: id }); }
 function removeApiKey(id)    { vscode.postMessage({ command: 'removeApiKey', providerId: id }); }
 function updateModel(id, m)  { vscode.postMessage({ command: 'updateModel', providerId: id, model: m }); }
