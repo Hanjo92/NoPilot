@@ -23,8 +23,10 @@ function assertAppearsInOrder(source: string, snippets: string[]): void {
 test('extension configuration listener refreshes provider state for external model and Ollama endpoint changes', () => {
   const source = readExtensionSource();
 
+  assert.match(source, /import \{ NoPilotMenuProvider \} from '\.\/ui\/noPilotMenuTree';/);
   assert.match(source, /const PROVIDER_IDS: ProviderId\[\] = \['vscode-lm', 'anthropic', 'openai', 'openai-compatible', 'gemini', 'ollama'\];/);
   assert.match(source, /const providerManager = new ProviderManager\(authService, context\.globalState\);/);
+  assert.match(source, /vscode\.window\.registerTreeDataProvider\(\s*'nopilot\.menu',\s*new NoPilotMenuProvider\(\)\s*\)/);
   assert.match(source, /void \(async \(\) => \{/);
   assert.match(source, /await providerManager\.reconcileConfiguredProvider\(\);/);
   assert.match(source, /await providerManager\.syncProviderState\(selected\.id as ProviderId\);/);

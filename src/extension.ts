@@ -5,6 +5,7 @@ import { ProviderManager } from './providers/providerManager';
 import { NoPilotInlineCompletionProvider } from './features/inlineCompletionProvider';
 import { CommitMessageGenerator } from './features/commitMessageGenerator';
 import { SettingsPanel } from './ui/settingsPanel';
+import { NoPilotMenuProvider } from './ui/noPilotMenuTree';
 import { handleInlineChat } from './features/inlineChat';
 import { promptAndSaveProviderApiKey } from './providers/providerCredentials';
 import { getProviderModelConfigKey, getProviderModelSettingScope } from './providers/providerConfig';
@@ -47,6 +48,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(inlineProvider);
 
   const commitGenerator = new CommitMessageGenerator(providerManager, gitService);
+
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider(
+      'nopilot.menu',
+      new NoPilotMenuProvider()
+    )
+  );
 
   // ── Status Bar ──
   statusBarItem = vscode.window.createStatusBarItem(

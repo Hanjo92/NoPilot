@@ -18,6 +18,17 @@ interface ExtensionManifest {
         description?: string;
       }>;
     };
+    viewsContainers?: {
+      activitybar?: Array<{
+        id?: string;
+        title?: string;
+        icon?: string;
+      }>;
+    };
+    views?: Record<string, Array<{
+      id?: string;
+      name?: string;
+    }>>;
   };
   galleryBanner?: {
     color?: string;
@@ -48,6 +59,18 @@ test('manifest includes marketplace icon metadata', () => {
   assert.equal(manifest.icon, 'media/icon.png');
   assert.equal(manifest.galleryBanner?.color, '#2563eb');
   assert.ok(existsSync(path.resolve(process.cwd(), manifest.icon ?? '')));
+});
+
+test('manifest contributes NoPilot activity bar menu view', () => {
+  const manifest = readManifest();
+  const activityBarViews = manifest.contributes?.viewsContainers?.activitybar ?? [];
+  const noPilotContainer = activityBarViews.find((view) => view.id === 'nopilot');
+  const noPilotViews = manifest.contributes?.views?.nopilot ?? [];
+
+  assert.equal(noPilotContainer?.title, 'NoPilot');
+  assert.equal(noPilotContainer?.icon, 'media/nopilot-activity.svg');
+  assert.ok(existsSync(path.resolve(process.cwd(), noPilotContainer?.icon ?? '')));
+  assert.ok(noPilotViews.some((view) => view.id === 'nopilot.menu' && view.name === 'Menu'));
 });
 
 test('package ignore excludes internal planning artifacts', () => {
@@ -94,7 +117,7 @@ test('manifest copy reflects model-level selection behavior', () => {
   const properties = manifest.contributes?.configuration?.properties ?? {};
   const switchCommand = commands.find((command) => command.command === 'nopilot.switchProvider');
 
-  assert.equal(switchCommand?.title, 'NoPilot: Select AI Model');
+  assert.equal(switchCommand?.title, 'NoPilot: Select Provider / Model');
   assert.equal(
     properties['nopilot.model']?.description,
     'VS Code LM model key override (empty = provider default)'

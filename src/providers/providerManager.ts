@@ -574,11 +574,82 @@ export class ProviderManager implements vscode.Disposable {
   async showProviderQuickPick(): Promise<void> {
     interface ProviderQuickPickItem extends vscode.QuickPickItem {
       providerId?: ProviderId;
+      action?: 'settings';
+    }
+
+    interface ModelQuickPickItem extends vscode.QuickPickItem {
+      providerId?: ProviderId;
       modelKey?: string;
       action?: 'settings';
     }
 
-    const items: ProviderQuickPickItem[] = this.buildModelEntries().map((entry) => ({
+    const providerItems: ProviderQuickPickItem[] = this.getAllProviderInfos().map((info) => {
+      const isActive = info.id === this.activeProviderId;
+      const usageLabel = this.formatProviderRequestCount(info.id);
+      const statusLabel = isActive
+        ? '$(check) Active'
+        : info.status === 'ready'
+          ? '$(plug) Ready'
+          : info.status === 'needs-key'
+            ? '$(key) API key needed'
+            : '$(warning) Unavailable';
+
+      return {
+        label: `${info.icon} ${info.name}`,
+        description: usageLabel,
+        detail: `${statusLabel} · ${info.currentModel || 'No model selected'}`,
+        providerId: info.id,
+      };
+    });
+
+    providerItems.push({
+      label: '',
+      kind: vscode.QuickPickItemKind.Separator,
+    });
+
+    providerItems.push({
+      label: '$(gear) Open Full Settings...',
+      description: '',
+      action: 'settings',
+    });
+
+    const selectedProvider = await vscode.window.showQuickPick(providerItems, {
+      title: 'NoPilot: Select Provider',
+      placeHolder: `Choose a provider · ${this.getProviderUsageSummaryLabel()}`,
+    });
+
+    if (!selectedProvider) {
+      return;
+    }
+
+    if (selectedProvider.action === 'settings') {
+      await vscode.commands.executeCommand('nopilot.openSettings');
+      return;
+    }
+
+    if (!selectedProvider.providerId) {
+      return;
+    }
+
+    const provider = this.providers.get(selectedProvider.providerId);
+    const providerInfo = provider?.info;
+    if (!providerInfo) {
+      return;
+    }
+
+    const modelEntries = this.buildModelEntries().filter((entry) =>
+      entry.providerId === selectedProvider.providerId && entry.modelKey
+    );
+
+    if (selectedProvider.providerId && modelEntries.length === 0) {
+      const providerName = providerInfo.name || selectedProvider.providerId;
+      void vscode.window.showWarningMessage(
+        `NoPilot: ${providerName} is currently unavailable`
+      );
+      return;
+    }
+
+    const modelItems: ModelQuickPickItem[] = modelEntries.map((entry) => ({
       label: entry.label,
       description: entry.description,
       detail: entry.detail,
@@ -586,42 +657,33 @@ export class ProviderManager implements vscode.Disposable {
       modelKey: entry.modelKey,
     }));
 
-    items.push({
+    modelItems.push({
       label: '',
       kind: vscode.QuickPickItemKind.Separator,
     });
 
-    items.push({
+    modelItems.push({
       label: '$(gear) Open Full Settings...',
       description: '',
       action: 'settings',
     });
 
-    const selected = await vscode.window.showQuickPick(items, {
-      title: 'NoPilot: Select AI Model',
-      placeHolder: `Choose your AI provider or model · ${this.getProviderUsageSummaryLabel()}`,
+    const selectedModel = await vscode.window.showQuickPick(modelItems, {
+      title: `NoPilot: Select Model · ${providerInfo.name}`,
+      placeHolder: `Choose a model from ${providerInfo.name}`,
     });
 
-    if (!selected) {
+    if (!selectedModel) {
       return;
     }
 
-    if (selected.action === 'settings') {
+    if (selectedModel.action === 'settings') {
       await vscode.commands.executeCommand('nopilot.openSettings');
       return;
     }
 
-    if (selected.providerId && !selected.modelKey) {
-      const provider = this.providers.get(selected.providerId);
-      const providerName = provider?.info.name || selected.providerId;
-      void vscode.window.showWarningMessage(
-        `NoPilot: ${providerName} is currently unavailable`
-      );
-      return;
-    }
-
-    if (selected.providerId && selected.modelKey) {
-      await this.switchTo(selected.providerId, selected.modelKey);
+    if (selectedModel.providerId && selectedModel.modelKey) {
+      await this.switchTo(selectedModel.providerId, selectedModel.modelKey);
     }
   }
 

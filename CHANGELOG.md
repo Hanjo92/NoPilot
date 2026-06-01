@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-06-01
+
+### Added
+
+- Added a NoPilot Activity Bar entry with sidebar shortcuts for core extension actions.
+
+### Changed
+
+- Changed provider/model selection to choose a provider first, then select from that provider's models.
+- Updated the settings panel to refresh provider activation state immediately after clicking Activate.
+
 ## [0.3.0] - 2026-05-19
 
 ### Added

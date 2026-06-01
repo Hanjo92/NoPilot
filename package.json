@@ -2,7 +2,7 @@
   "name": "nopilot",
   "displayName": "NoPilot",
   "description": "Use Claude, GPT, Gemini, Ollama, or VS Code LM for inline completions, inline edits, and AI commit messages.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "hanjo92",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -64,7 +64,7 @@
       },
       {
         "command": "nopilot.switchProvider",
-        "title": "NoPilot: Select AI Model"
+        "title": "NoPilot: Select Provider / Model"
       },
       {
         "command": "nopilot.setApiKey",
@@ -75,6 +75,23 @@
         "title": "NoPilot: Inline Chat (Edit/Replace)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "nopilot",
+          "title": "NoPilot",
+          "icon": "media/nopilot-activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "nopilot": [
+        {
+          "id": "nopilot.menu",
+          "name": "Menu"
+        }
+      ]
+    },
     "menus": {
       "scm/title": [
         {
