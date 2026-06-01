@@ -10,25 +10,25 @@ interface NoPilotMenuAction {
 const MENU_ACTIONS: NoPilotMenuAction[] = [
   {
     label: 'Open Settings',
-    description: 'Configure providers and extension settings',
+    description: 'Open the NoPilot settings dashboard',
     command: 'nopilot.openSettings',
     icon: new vscode.ThemeIcon('gear'),
   },
   {
     label: 'Select Provider / Model',
-    description: 'Choose a provider, then a model',
+    description: 'Choose a provider first, then select one of its models',
     command: 'nopilot.switchProvider',
     icon: new vscode.ThemeIcon('list-selection'),
   },
   {
     label: 'Set API Key',
-    description: 'Save or change provider credentials',
+    description: 'Save or change provider credentials in VS Code SecretStorage',
     command: 'nopilot.setApiKey',
     icon: new vscode.ThemeIcon('key'),
   },
   {
     label: 'Toggle Inline Suggestions',
-    description: 'Enable or disable NoPilot inline completions',
+    description: 'Enable or disable automatic NoPilot inline suggestions',
     command: 'nopilot.toggleInline',
     icon: new vscode.ThemeIcon('symbol-boolean'),
   },

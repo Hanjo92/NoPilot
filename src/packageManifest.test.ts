@@ -5,6 +5,8 @@ import path from 'node:path';
 
 interface ExtensionManifest {
   activationEvents?: string[];
+  description?: string;
+  keywords?: string[];
   contributes?: {
     commands?: Array<{
       command?: string;
@@ -59,6 +61,15 @@ test('manifest includes marketplace icon metadata', () => {
   assert.equal(manifest.icon, 'media/icon.png');
   assert.equal(manifest.galleryBanner?.color, '#2563eb');
   assert.ok(existsSync(path.resolve(process.cwd(), manifest.icon ?? '')));
+});
+
+test('manifest marketplace copy reflects current NoPilot workflow', () => {
+  const manifest = readManifest();
+
+  assert.match(manifest.description ?? '', /Provider-switching AI coding/);
+  assert.ok(manifest.keywords?.includes('provider switcher'));
+  assert.ok(manifest.keywords?.includes('activity bar'));
+  assert.ok(manifest.keywords?.includes('usage dashboard'));
 });
 
 test('manifest contributes NoPilot activity bar menu view', () => {
@@ -120,6 +131,7 @@ test('manifest copy reflects model-level selection behavior', () => {
   assert.equal(switchCommand?.title, 'NoPilot: Select Provider / Model');
   assert.equal(
     properties['nopilot.model']?.description,
-    'VS Code LM model key override (empty = provider default)'
+    'Optional VS Code LM model key override. Leave empty to use the provider default or choose a model from NoPilot.'
   );
+  assert.match(properties['nopilot.provider']?.description ?? '', /Activity Bar menu/);
 });

@@ -1,45 +1,90 @@
 # NoPilot
 
-> A multi-provider AI coding assistant for VS Code. Keep the Copilot-style workflow, but choose the model and endpoint that fit your project.
+> Provider-switching AI coding for VS Code. Use inline completions, inline chat, commit messages, usage-aware provider controls, and local or remote model endpoints from one NoPilot menu.
 
-NoPilot brings inline code completion, selection-based inline edits, and AI commit messages into VS Code without locking you to a single subscription or provider. Use VS Code Language Models, Claude, GPT, Gemini, OpenAI-compatible APIs, or Ollama, including remote endpoints on your network.
+NoPilot gives VS Code a lightweight AI coding workflow without locking you to one provider. Open the NoPilot Activity Bar entry, choose a provider first, then choose a model from that provider. You can use VS Code Language Models, Claude, OpenAI/GPT, Gemini, OpenAI-compatible APIs, and local or remote Ollama servers.
 
 ![NoPilot Shield](https://img.shields.io/badge/VS_Code-Extension-blue.svg)
 ![AI Models](https://img.shields.io/badge/Models-VS_Code_LM_%7C_Claude_%7C_GPT_%7C_Gemini_%7C_OpenAI--Compatible_%7C_Ollama-success.svg)
 
 ## Highlights
 
-- **Choose your provider**: Switch between VS Code LM, Anthropic, OpenAI, OpenAI-compatible APIs, Gemini, and Ollama from the NoPilot settings panel.
-- **Inline completions that fit your latency**: Pick Fast, Balanced, or Rich quality profiles for automatic ghost text.
-- **Remote Ollama friendly**: Auto-detect remote or slow Ollama behavior, trim automatic inline requests, and show request status when the endpoint is slow or unreachable.
-- **Context-aware suggestions**: Reuse local cache entries, current-file context, nearby structure, and workspace symbols when the selected profile allows it.
+- **Activity Bar control center**: Open NoPilot from the VS Code Activity Bar and jump to settings, provider/model selection, API keys, inline suggestion toggles, or commit message generation.
+- **Provider-first model picker**: Choose the provider first, then pick from that provider's models instead of scanning one long mixed model list.
+- **Settings dashboard**: Activate providers, set API keys, refresh live model lists, configure endpoints, and review request usage in one webview.
+- **Usage visibility**: See current provider requests, total requests, top provider, and provider share in the status bar and settings dashboard.
+- **Inline completions**: Get automatic ghost text with Fast, Balanced, or Rich quality profiles.
 - **Inline Chat**: Select code, press `Ctrl+I` or `Cmd+I`, and ask NoPilot to edit or replace it in place.
 - **AI commit messages**: Generate conventional or simple commit messages from your Git diff.
+- **Remote and custom endpoints**: Use OpenAI-compatible `/v1` gateways and local, LAN, tunneled, or remote Ollama servers.
 - **Local-first secrets**: Provider keys are stored through VS Code SecretStorage, not plain settings JSON.
 
 ## Getting Started
 
-1. Install the extension.
-2. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and type **`NoPilot: Open Settings`**.
-3. Choose a provider:
+1. Install NoPilot.
+2. Open the NoPilot icon in the VS Code Activity Bar, or run **NoPilot: Open Settings** from the Command Palette.
+3. Configure a provider:
    - **VS Code LM**: Uses language models already available through VS Code.
-   - **Anthropic, OpenAI, Gemini**: Set your API key, then choose a model.
-   - **OpenAI-Compatible**: Set a `baseUrl`, save an API key, refresh models, then choose any model exposed by your compatible server.
-   - **Ollama**: Set an endpoint such as `http://localhost:11434` or a remote server URL, refresh models, then choose a completion model.
-4. Start typing. Accept inline suggestions with `Tab`.
+   - **Anthropic, OpenAI, Gemini**: Save an API key, then choose a model.
+   - **OpenAI-Compatible**: Set a `baseUrl`, save an API key, refresh models, then choose a model exposed by your server.
+   - **Ollama**: Set a local or remote endpoint, refresh models, then choose a completion model.
+4. Run **NoPilot: Select Provider / Model** from the sidebar, status bar, or Command Palette.
+5. Start typing. Accept inline suggestions with `Tab`.
 
-### OpenAI-Compatible Quick Start
+## NoPilot Menu
 
-This provider is useful when you want to point NoPilot at a custom OpenAI-style gateway instead of the official OpenAI API or a raw Ollama endpoint.
+The NoPilot Activity Bar entry opens a compact sidebar menu:
+
+- **Open Settings**: Open the provider and extension settings dashboard.
+- **Select Provider / Model**: Pick a provider first, then a model from that provider.
+- **Set API Key**: Save or change credentials through VS Code SecretStorage.
+- **Toggle Inline Suggestions**: Enable or disable automatic ghost text.
+- **Generate Commit Message**: Create a commit message from the current Git changes.
+
+The status bar also shows the active provider/model with request usage and opens the same provider/model picker when clicked.
+
+## Provider And Model Selection
+
+NoPilot separates provider selection from model selection:
+
+1. Choose a provider such as VS Code LM, Anthropic, OpenAI, OpenAI-Compatible, Gemini, or Ollama.
+2. NoPilot shows only models for that provider.
+3. Pick a model, or open the full settings dashboard if setup is needed.
+
+This keeps the model picker readable when several providers or live model catalogs are available.
+
+## Provider Setup
+
+### VS Code LM
+
+Use this when you want NoPilot to call models already available through VS Code. You can leave `nopilot.model` empty to use the provider default, or choose a discovered model from NoPilot.
+
+### Anthropic, OpenAI, And Gemini
+
+Use **NoPilot: Set API Key** or the settings dashboard to store credentials. Provider model settings are separate:
+
+- `nopilot.anthropic.model`
+- `nopilot.openai.model`
+- `nopilot.gemini.model`
+
+### OpenAI-Compatible
+
+Use this provider for custom OpenAI-style gateways, proxies, and self-hosted endpoints.
 
 Example:
 
 - `nopilot.provider = openai-compatible`
 - `nopilot.openaiCompatible.baseUrl = https://llm.example.com/v1`
-- Save your API key through **NoPilot: Set API Key** or the Settings panel
+- Save your API key through **NoPilot: Set API Key** or the settings dashboard
 - `nopilot.openaiCompatible.model = gpt-oss:20b`
 
-This keeps custom model names such as `gpt-oss:20b` or `mistral-small:latest` separate from official `nopilot.openai.*` settings.
+NoPilot queries `${baseUrl}/models` and sends chat-completions requests through the configured API root. Custom model names stay separate from official `nopilot.openai.*` settings.
+
+### Ollama
+
+Set `nopilot.ollama.endpoint` to `http://localhost:11434` or to a LAN, tunnel, proxy, or remote server URL. Refresh models from the settings dashboard, then choose a model with **NoPilot: Select Provider / Model**.
+
+Remote Ollama mode can automatically use leaner automatic inline requests when latency or network behavior makes a server feel remote.
 
 ## Keybindings
 
@@ -49,14 +94,14 @@ This keeps custom model names such as `gpt-oss:20b` or `mistral-small:latest` se
 
 ## Important Settings
 
-You can customize NoPilot's behavior fully via **VS Code Settings > Extensions > NoPilot**:
+You can customize NoPilot through **VS Code Settings > Extensions > NoPilot** or the NoPilot settings dashboard:
 
-- `nopilot.provider`: Active AI provider.
+- `nopilot.provider`: Active provider for NoPilot requests.
 - `nopilot.model`: Optional VS Code LM model override.
-- `nopilot.inline.enabled`: Turn automatic ghost text suggestions on or off.
+- `nopilot.inline.enabled`: Enable automatic inline suggestions.
 - `nopilot.inline.qualityProfile`: Choose `fast`, `balanced`, or `rich` automatic inline behavior.
 - `nopilot.inline.pauseWhenCopilotActive`: Pause automatic NoPilot suggestions when GitHub Copilot is active for the current language.
-- `nopilot.inline.debounceMs`: Milliseconds to wait before requesting an automatic suggestion.
+- `nopilot.inline.debounceMs`: Delay before requesting an automatic suggestion.
 - `nopilot.inline.maxPrefixLines`: Maximum lines before the cursor to include as inline context.
 - `nopilot.inline.maxSuffixLines`: Maximum lines after the cursor to include as inline context.
 - `nopilot.ollama.endpoint`: Ollama server endpoint, local or remote.
@@ -70,37 +115,37 @@ You can customize NoPilot's behavior fully via **VS Code Settings > Extensions >
 - `nopilot.commitMessage.language`: Commit message language, such as `en`, `ko`, or `ja`.
 - `nopilot.commitMessage.format`: `conventional` or `simple`.
 
-## OpenAI-Compatible Tips
+## Usage Visibility
 
-Use the OpenAI-compatible provider when:
+NoPilot tracks request counts per provider in extension storage. The status bar and settings dashboard show:
 
-- you have a custom `/v1` proxy or gateway
-- you want auth headers and model discovery through `/models`
-- your backend model names are not official OpenAI names
-- you want to avoid mixing custom gateway settings with official `nopilot.openai.*`
+- current provider request count
+- total request count
+- most-used provider
+- provider share across configured providers
 
-The configured `baseUrl` should point at the API root, for example `https://llm.example.com/v1`. NoPilot will query `${baseUrl}/models` and send chat-completions requests through that same root.
+These counts are local convenience data for the extension UI.
 
-## Remote Ollama Tips
+## Security And Data Handling
 
-Remote Ollama servers can feel different from local `localhost` setups because latency and intermittent network failures are more visible while you type. NoPilot's `auto` remote mode detects remote endpoints and slow local behavior, then keeps automatic inline requests leaner. Explicit actions, such as Inline Chat, can still use richer context.
+Your source code is sent only to the provider you select. Provider API keys are stored locally using VS Code SecretStorage. Ollama and OpenAI-compatible requests go only to the endpoint you configure.
 
-Use `forced-on` if your endpoint is behind a proxy, tunnel, LAN server, or remote machine and you always want remote-optimized inline completions. Use `forced-off` if you want local-style behavior even when NoPilot would otherwise optimize for latency.
-
-## Security
-
-Your source code is sent only to the provider you select. Provider API keys are stored locally using VS Code SecretStorage, and Ollama or OpenAI-compatible requests go only to the endpoint you configure.
+- NoPilot sends prompts and code context only to the active provider.
+- Provider API keys are stored locally in VS Code SecretStorage.
+- Ollama requests are sent to the configured endpoint, which may be local or remote.
+- OpenAI-compatible requests are sent to the configured `baseUrl`.
+- This project currently does not implement custom telemetry or analytics collection.
+- You are responsible for reviewing the data handling and retention policies of any third-party model provider you enable.
 
 Do not commit real API keys, internal gateway URLs, or temporary tunnel URLs into workspace settings, screenshots, docs, or examples.
 
-## Data Handling
+## Troubleshooting
 
-- NoPilot sends prompts and code context only to the AI provider you explicitly choose.
-- Provider API keys are stored locally in VS Code SecretStorage.
-- Ollama requests are sent to the endpoint you configure, which may be local or on your network.
-- OpenAI-compatible requests are sent to the `baseUrl` you configure.
-- This project currently does not implement custom telemetry or analytics collection.
-- You are responsible for reviewing the data handling and retention policies of any third-party model provider you enable.
+- Open **NoPilot: Open Settings** to confirm the active provider, API key state, endpoint, and selected model.
+- Use **NoPilot: Select Provider / Model** to verify that the provider exposes selectable models.
+- For Ollama, refresh models after changing `nopilot.ollama.endpoint`.
+- For OpenAI-compatible servers, confirm that the configured `baseUrl` points to the API root, such as `https://llm.example.com/v1`.
+- Check **Output > NoPilot** for provider state and request diagnostics.
 
 ## Project Links
 
@@ -110,4 +155,5 @@ Do not commit real API keys, internal gateway URLs, or temporary tunnel URLs int
 - Security: [SECURITY.md](./SECURITY.md)
 
 ---
-Built for developers who want Copilot-style speed without giving up provider choice.
+
+Built for developers who want AI coding help without giving up provider choice.

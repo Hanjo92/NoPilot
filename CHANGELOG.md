@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-06-01
+
+### Changed
+
+- Refreshed Marketplace and README copy to match the current Activity Bar menu, provider-first model selection, settings dashboard, usage visibility, and endpoint support.
+- Clarified VS Code setting descriptions for provider switching, inline suggestions, commit messages, and provider-specific models.
+
 ## [0.3.1] - 2026-06-01
 
 ### Added

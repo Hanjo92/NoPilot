@@ -1,8 +1,8 @@
 {
   "name": "nopilot",
   "displayName": "NoPilot",
-  "description": "Use Claude, GPT, Gemini, Ollama, or VS Code LM for inline completions, inline edits, and AI commit messages.",
-  "version": "0.3.1",
+  "description": "Provider-switching AI coding for VS Code with inline completions, inline chat, commit messages, usage visibility, and local or remote model endpoints.",
+  "version": "0.3.2",
   "publisher": "hanjo92",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -38,6 +38,9 @@
     "vscode lm",
     "inline completion",
     "inline chat",
+    "provider switcher",
+    "activity bar",
+    "usage dashboard",
     "code completion",
     "commit message"
   ],
@@ -123,17 +126,17 @@
             "ollama"
           ],
           "default": "vscode-lm",
-          "description": "Active AI provider"
+          "description": "Active provider for NoPilot requests. Switch from the Activity Bar menu, status bar, settings dashboard, or Command Palette."
         },
         "nopilot.model": {
           "type": "string",
           "default": "",
-          "description": "VS Code LM model key override (empty = provider default)"
+          "description": "Optional VS Code LM model key override. Leave empty to use the provider default or choose a model from NoPilot."
         },
         "nopilot.inline.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable inline code completion"
+          "description": "Enable automatic NoPilot inline code suggestions."
         },
         "nopilot.inline.qualityProfile": {
           "type": "string",
@@ -148,34 +151,34 @@
             "Allow richer automatic suggestions with more context and a more eager trigger."
           ],
           "default": "balanced",
-          "description": "Quality profile for automatic inline suggestions"
+          "description": "Quality profile for automatic inline suggestions."
         },
         "nopilot.inline.pauseWhenCopilotActive": {
           "type": "boolean",
           "default": true,
-          "description": "Skip automatic NoPilot inline requests when GitHub Copilot is active for the current language"
+          "description": "Skip automatic NoPilot inline requests when GitHub Copilot is active for the current language."
         },
         "nopilot.inline.debounceMs": {
           "type": "number",
           "default": 500,
           "minimum": 100,
           "maximum": 2000,
-          "description": "Debounce time in ms before requesting completion"
+          "description": "Delay in milliseconds before NoPilot requests an automatic inline suggestion."
         },
         "nopilot.inline.maxPrefixLines": {
           "type": "number",
           "default": 50,
-          "description": "Max lines of code before cursor to include as context"
+          "description": "Maximum lines before the cursor to include as inline context."
         },
         "nopilot.inline.maxSuffixLines": {
           "type": "number",
           "default": 20,
-          "description": "Max lines of code after cursor to include as context"
+          "description": "Maximum lines after the cursor to include as inline context."
         },
         "nopilot.commitMessage.language": {
           "type": "string",
           "default": "en",
-          "description": "Language for commit messages (e.g. en, ko, ja)"
+          "description": "Language for generated commit messages, such as en, ko, or ja."
         },
         "nopilot.commitMessage.format": {
           "type": "string",
@@ -184,37 +187,37 @@
             "simple"
           ],
           "default": "conventional",
-          "description": "Commit message format"
+          "description": "Format for generated commit messages."
         },
         "nopilot.anthropic.model": {
           "type": "string",
           "default": "claude-sonnet-4-20250514",
-          "description": "Anthropic model to use"
+          "description": "Anthropic model to use when Anthropic is the active provider."
         },
         "nopilot.openai.model": {
           "type": "string",
           "default": "gpt-5-mini",
-          "description": "OpenAI model to use"
+          "description": "OpenAI model to use when OpenAI is the active provider."
         },
         "nopilot.openaiCompatible.baseUrl": {
           "type": "string",
           "default": "",
-          "description": "OpenAI-compatible API base URL (example: https://llm.example.com/v1)"
+          "description": "OpenAI-compatible API base URL, for example https://llm.example.com/v1."
         },
         "nopilot.openaiCompatible.model": {
           "type": "string",
           "default": "gpt-oss:20b",
-          "description": "OpenAI-compatible model to use"
+          "description": "Model name exposed by your OpenAI-compatible endpoint."
         },
         "nopilot.gemini.model": {
           "type": "string",
           "default": "gemini-2.5-flash",
-          "description": "Gemini model to use"
+          "description": "Gemini model to use when Gemini is the active provider."
         },
         "nopilot.ollama.endpoint": {
           "type": "string",
           "default": "http://localhost:11434",
-          "description": "Ollama server endpoint"
+          "description": "Ollama server endpoint, local or remote."
         },
         "nopilot.ollama.remoteMode": {
           "type": "string",
@@ -229,12 +232,12 @@
             "Never use remote-optimized inline behavior for Ollama."
           ],
           "default": "auto",
-          "description": "Remote Ollama optimization mode for inline suggestions"
+          "description": "Remote Ollama optimization mode for inline suggestions."
         },
         "nopilot.ollama.model": {
           "type": "string",
           "default": "codellama",
-          "description": "Ollama model to use"
+          "description": "Ollama completion model to use when Ollama is the active provider."
         }
       }
     }
