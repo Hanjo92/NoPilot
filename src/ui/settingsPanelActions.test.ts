@@ -53,6 +53,7 @@ function createActions(overrides: Partial<Parameters<typeof handleSettingsPanelM
     setApiKeys: [] as Array<{ providerId: string; key: string }>,
     removeApiKeys: [] as string[],
     updateSettings: [] as Array<{ key: string; value: unknown }>,
+    refreshProviderState: [] as string[],
     openExternal: [] as string[],
   };
 
@@ -83,6 +84,9 @@ function createActions(overrides: Partial<Parameters<typeof handleSettingsPanelM
     updateSetting: async (key: string, value: unknown) => {
       calls.updateSettings.push({ key, value });
     },
+    refreshProviderState: async (providerId: string) => {
+      calls.refreshProviderState.push(providerId);
+    },
     openExternal: async (url: string) => {
       calls.openExternal.push(url);
     },
@@ -101,6 +105,7 @@ test('handleSettingsPanelMessage sends state for requestState', async () => {
   await handleSettingsPanelMessage({ command: 'requestState' }, actions);
 
   assert.equal(calls.sendState, 1);
+  assert.deepEqual(calls.refreshProviderState, []);
 });
 
 test('handleSettingsPanelMessage stores API key, refreshes provider, and sends state', async () => {
@@ -168,7 +173,7 @@ test('handleSettingsPanelMessage updates settings and forwards external links', 
 });
 
 test('handleSettingsPanelMessage refreshes Ollama after updating its endpoint', async () => {
-  const { provider, calls, actions } = createActions();
+  const { calls, actions } = createActions();
 
   await handleSettingsPanelMessage(
     { command: 'updateSetting', key: 'ollama.endpoint', value: 'http://127.0.0.1:11434' },
@@ -178,7 +183,22 @@ test('handleSettingsPanelMessage refreshes Ollama after updating its endpoint', 
   assert.deepEqual(calls.updateSettings, [
     { key: 'ollama.endpoint', value: 'http://127.0.0.1:11434' },
   ]);
-  assert.equal(provider.refreshCalls, 0);
+  assert.deepEqual(calls.refreshProviderState, []);
+  assert.equal(calls.sendState, 1);
+});
+
+test('handleSettingsPanelMessage refreshes OpenAI-compatible after updating its base URL', async () => {
+  const { calls, actions } = createActions();
+
+  await handleSettingsPanelMessage(
+    { command: 'updateSetting', key: 'openaiCompatible.baseUrl', value: 'https://llm.example.com/v1' },
+    actions
+  );
+
+  assert.deepEqual(calls.updateSettings, [
+    { key: 'openaiCompatible.baseUrl', value: 'https://llm.example.com/v1' },
+  ]);
+  assert.deepEqual(calls.refreshProviderState, ['openai-compatible']);
   assert.equal(calls.sendState, 1);
 });
 
@@ -198,7 +218,7 @@ test('handleSettingsPanelMessage updates Ollama remote mode without refreshing m
 });
 
 test('handleSettingsPanelMessage saves the typed endpoint before refreshing Ollama models', async () => {
-  const { provider, calls, actions } = createActions();
+  const { calls, actions } = createActions();
 
   await handleSettingsPanelMessage(
     { command: 'refreshOllama', endpoint: '10.0.0.5:11434' },
@@ -208,6 +228,6 @@ test('handleSettingsPanelMessage saves the typed endpoint before refreshing Olla
   assert.deepEqual(calls.updateSettings, [
     { key: 'ollama.endpoint', value: 'http://10.0.0.5:11434' },
   ]);
-  assert.equal(provider.refreshCalls, 0);
+  assert.deepEqual(calls.refreshProviderState, ['ollama']);
   assert.equal(calls.sendState, 1);
 });

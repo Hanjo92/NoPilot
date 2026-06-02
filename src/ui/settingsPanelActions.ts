@@ -15,6 +15,7 @@ export interface SettingsPanelActions {
   setApiKey: (providerId: string, key: string) => Promise<void>;
   removeApiKey: (providerId: string) => Promise<void>;
   updateSetting: (key: string, value: unknown) => Promise<void>;
+  refreshProviderState: (providerId: string) => Promise<void>;
   openExternal: (url: string) => Promise<void>;
   sendState: () => Promise<void>;
   debugLog?: (message: string) => void;
@@ -76,6 +77,9 @@ export async function handleSettingsPanelMessage(
           ? normalizeOllamaEndpoint(String(message.value ?? ''))
           : message.value
       );
+      if (message.key === 'openaiCompatible.baseUrl') {
+        await actions.refreshProviderState('openai-compatible');
+      }
       await actions.sendState();
       return;
 
@@ -83,6 +87,7 @@ export async function handleSettingsPanelMessage(
       const endpoint = normalizeOllamaEndpoint(message.endpoint);
       actions.debugLog?.(`SettingsPanel refreshOllama requested | endpoint=${endpoint}`);
       await actions.updateSetting('ollama.endpoint', endpoint);
+      await actions.refreshProviderState('ollama');
       actions.debugLog?.(`SettingsPanel refreshOllama completed | endpoint=${endpoint}`);
       await actions.sendState();
       return;

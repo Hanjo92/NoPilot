@@ -17,7 +17,6 @@ export class SettingsPanel {
   private readonly panel: vscode.WebviewPanel;
   private disposables: vscode.Disposable[] = [];
   private stateRequestVersion = 0;
-  private isRefreshingProviderStateForWebview = false;
   private isDisposed = false;
 
   private constructor(
@@ -45,17 +44,13 @@ export class SettingsPanel {
     // Update webview when provider changes
     this.disposables.push(
       this.providerManager.onDidChangeProvider(() => {
-        if (!this.isRefreshingProviderStateForWebview) {
-          this.requestStateRefresh();
-        }
+        this.requestStateRefresh();
       }),
       this.providerManager.onDidChangeUsage(() => {
         this.requestStateRefresh();
       }),
       this.providerManager.onDidChangeProviderState(() => {
-        if (!this.isRefreshingProviderStateForWebview) {
-          this.requestStateRefresh();
-        }
+        this.requestStateRefresh();
       }),
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration('nopilot')) {
@@ -118,14 +113,6 @@ export class SettingsPanel {
     const config = vscode.workspace.getConfiguration('nopilot');
     const ollamaConfig = vscode.workspace.getConfiguration('nopilot.ollama');
     const openAiCompatibleConfig = vscode.workspace.getConfiguration('nopilot.openaiCompatible');
-
-    this.isRefreshingProviderStateForWebview = true;
-    try {
-      await this.providerManager.refreshProviderState('ollama');
-      await this.providerManager.refreshProviderState('openai-compatible');
-    } finally {
-      this.isRefreshingProviderStateForWebview = false;
-    }
 
     const state = await buildSettingsWebviewState({
       getAllProviderInfos: () => this.providerManager.getAllProviderInfos(),
@@ -204,6 +191,8 @@ export class SettingsPanel {
         openExternal: async (url) => {
           await vscode.env.openExternal(vscode.Uri.parse(url));
         },
+        refreshProviderState: (providerId) =>
+          this.providerManager.refreshProviderState(providerId as any),
         sendState: () => this.sendStateToWebview(),
         debugLog: (logMessage) => log(logMessage),
       });

@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-06-02
+
+### Fixed
+
+- Stopped the settings webview from refreshing endpoint-backed providers on every state render, which could trigger repeated settings panel redraws and make menu controls difficult to select.
+- Kept Ollama and OpenAI-compatible provider refreshes tied to explicit endpoint/base URL actions instead of ordinary state reads.
+
 ## [0.3.2] - 2026-06-01
 
 ### Changed
