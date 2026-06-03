@@ -87,6 +87,8 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
   private cacheKeys: string[] = [];
   private readonly MAX_CACHE_SIZE = 50;
   private readonly requestAssemblyCache = new InlineRequestAssemblyCache();
+  private readonly inlineCompletionItemsChangeEmitter = new vscode.EventEmitter<void>();
+  readonly onDidChangeInlineCompletionItems = this.inlineCompletionItemsChangeEmitter.event;
   private readonly requestStatusEmitter = new vscode.EventEmitter<InlineRequestStatus>();
   readonly onDidChangeRequestStatus = this.requestStatusEmitter.event;
   private requestStatus: InlineRequestStatus = createIdleInlineRequestStatus();
@@ -297,14 +299,6 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
         return undefined;
       }
 
-      if (token.isCancellationRequested) {
-        log(`Inline #${requestId}: cancelled by VS Code`);
-        if (shouldTrackRequestStatus) {
-          this.clearRemoteRequestLifecycle(activeProvider.info, requestId, 'cancelled');
-        }
-        return undefined;
-      }
-
       if (!response.text) {
         log(`Inline #${requestId}: empty response`);
         if (shouldTrackRequestStatus) {
@@ -334,17 +328,26 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
         this.scheduleRequestStatusClear(requestId);
       }
 
+      this.cacheInlineCompletion(cacheKey, cleanedText);
+
+      if (token.isCancellationRequested) {
+        if (request.mode === 'automatic' && requestId === this.requestCounter) {
+          log(
+            `Inline #${requestId}: completion arrived after VS Code cancelled; cached ${cleanedText.length} chars for refresh`
+          );
+          this.inlineCompletionItemsChangeEmitter.fire();
+        } else {
+          log(`Inline #${requestId}: cancelled by VS Code`);
+          if (shouldTrackRequestStatus) {
+            this.clearRemoteRequestLifecycle(activeProvider.info, requestId, 'cancelled');
+          }
+        }
+        return undefined;
+      }
+
       log(
         `Inline #${requestId}: ✅ ${cleanedText.length} chars | provider ${providerDurationMs}ms | mode ${request.mode || 'explicit'} | profile ${this.qualityProfile}`
       );
-
-      // Save to cache
-      this.cache.set(cacheKey, cleanedText);
-      this.cacheKeys.push(cacheKey);
-      if (this.cacheKeys.length > this.MAX_CACHE_SIZE) {
-        const oldest = this.cacheKeys.shift();
-        if (oldest) this.cache.delete(oldest);
-      }
 
       return [
         new vscode.InlineCompletionItem(
@@ -553,6 +556,17 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     this.requestStatus = status;
     this.requestStatusEmitter.fire(status);
     this.updateEditorHint(status);
+  }
+
+  private cacheInlineCompletion(cacheKey: string, text: string): void {
+    this.cache.set(cacheKey, text);
+    this.cacheKeys.push(cacheKey);
+    if (this.cacheKeys.length > this.MAX_CACHE_SIZE) {
+      const oldest = this.cacheKeys.shift();
+      if (oldest) {
+        this.cache.delete(oldest);
+      }
+    }
   }
 
   private invalidateActiveRemoteRequestLifecycle(requestId = ++this.requestCounter): number {
@@ -1045,6 +1059,7 @@ export class NoPilotInlineCompletionProvider implements vscode.InlineCompletionI
     this.clearRequestStatusClearTimer();
     this.clearEditorHint();
     this.inlineHintDecorationType.dispose();
+    this.inlineCompletionItemsChangeEmitter.dispose();
     this.requestStatusEmitter.dispose();
     this.disposables.forEach((d) => d.dispose());
   }

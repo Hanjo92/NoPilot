@@ -25,3 +25,29 @@ test('direct API providers reset stale live model state when auth becomes unavai
   assert.match(gemini, /if \(!fallbackModels\.includes\(this\._info\.currentModel\)\) \{\s*this\._info\.currentModel = getDirectProviderDefaultModel\('gemini'\);/);
   assert.match(gemini, /this\.applyModelState\(\);\s*return false;\s*\}/);
 });
+
+test('direct API providers keep automatic inline requests alive after transient VS Code cancellation', () => {
+  const anthropic = readSource('src/providers/anthropicProvider.ts');
+  const openai = readSource('src/providers/openaiProvider.ts');
+  const openaiCompatible = readSource('src/providers/openAiCompatibleProvider.ts');
+  const ollama = readSource('src/providers/ollamaProvider.ts');
+  const gemini = readSource('src/providers/geminiProvider.ts');
+
+  assert.match(
+    anthropic,
+    /request\.mode === 'automatic'\s*\?\s*new vscode\.Disposable\(\(\) => undefined\)\s*:\s*token\.onCancellationRequested\(\(\) => abortController\.abort\(\)\)/
+  );
+  assert.match(
+    openai,
+    /request\.mode === 'automatic'\s*\?\s*new vscode\.Disposable\(\(\) => undefined\)\s*:\s*token\.onCancellationRequested\(\(\) => abortController\.abort\(\)\)/
+  );
+  assert.match(
+    openaiCompatible,
+    /request\.mode === 'automatic'\s*\?\s*new vscode\.Disposable\(\(\) => undefined\)\s*:\s*token\.onCancellationRequested\(\(\) => abortController\.abort\(\)\)/
+  );
+  assert.match(
+    ollama,
+    /request\.mode === 'automatic'\s*\?\s*new vscode\.Disposable\(\(\) => undefined\)\s*:\s*token\.onCancellationRequested\(\(\) => abortController\.abort\(\)\)/
+  );
+  assert.match(gemini, /if \(request\.mode !== 'automatic' && token\.isCancellationRequested\) \{/);
+});
