@@ -15,7 +15,7 @@ NoPilot gives VS Code a lightweight AI coding workflow without locking you to on
 - **Usage visibility**: See current provider requests, total requests, top provider, and provider share in the status bar and settings dashboard.
 - **Inline completions**: Get automatic ghost text with Fast, Balanced, or Rich quality profiles.
 - **Inline Chat**: Select code, press `Ctrl+I` or `Cmd+I`, and ask NoPilot to edit or replace it in place.
-- **AI commit messages**: Generate conventional or simple commit messages from your Git diff.
+- **AI commit messages**: Generate conventional or simple commit messages from your Git diff, or override the prompt with your own template.
 - **Remote and custom endpoints**: Use OpenAI-compatible `/v1` gateways and local, LAN, tunneled, or remote Ollama servers.
 - **Local-first secrets**: Provider keys are stored through VS Code SecretStorage, not plain settings JSON.
 
@@ -114,6 +114,13 @@ You can customize NoPilot through **VS Code Settings > Extensions > NoPilot** or
 - `nopilot.gemini.model`: Gemini model.
 - `nopilot.commitMessage.language`: Commit message language, such as `en`, `ko`, or `ja`.
 - `nopilot.commitMessage.format`: `conventional` or `simple`.
+- `nopilot.commitMessage.customPrompt`: Optional custom prompt template. Supports `{{diff}}` and `{{language}}`, and overrides the preset format when set.
+
+Example:
+
+```json
+"nopilot.commitMessage.customPrompt": "Generate a commit message in {{language}} using the format '<type>(<scope>): <subject>'. Use one of feat, fix, docs, refactor, test, or chore. Include a Jira ticket from the branch name when present.\n\n{{diff}}"
+```
 
 ## Usage Visibility
 

@@ -58,6 +58,9 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(styles, /\.settings-section/);
   assert.match(styles, /\.footer/);
   assert.match(styles, /\.settings-note/);
+  assert.match(styles, /\.settings-note code/);
+  assert.match(styles, /\.setting-control textarea/);
+  assert.match(styles, /resize: vertical/);
 
   assert.match(script, /function renderProviders/);
   assert.match(script, /function getProviderStatusBadge/);
@@ -96,6 +99,13 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(script, /function getInlineSettingsMarkup/);
   assert.match(script, /const COMMIT_LANGUAGE_OPTIONS = \[/);
   assert.match(script, /const COMMIT_FORMAT_OPTIONS = \[/);
+  assert.match(script, /commitMessage\.customPrompt/);
+  assert.match(script, /Custom Prompt/);
+  assert.match(script, /Optional template with \{\{diff\}\} and \{\{language\}\}/);
+  assert.match(script, /Template placeholders:/);
+  assert.match(script, /A non-empty custom prompt overrides the selected format/);
+  assert.match(script, /function textareaInput/);
+  assert.match(script, /settings\.commitCustomPrompt/);
   assert.match(script, /function getOllamaSettingsMarkup/);
   assert.match(script, /function getOllamaProvider/);
   assert.match(script, /function getOllamaStatusMarkup/);
@@ -114,6 +124,7 @@ test('settings webview parts expose focused markup, styles, and script blocks', 
   assert.match(script, /endpointValue = ollamaRefreshPending && pendingOllamaEndpoint/);
   assert.match(script, /command: 'refreshOllama'/);
   assert.match(script, /function getCommitSettingsMarkup/);
+  assert.match(script, /target instanceof HTMLTextAreaElement/);
   assert.match(script, /function updateSetting/);
 });
 

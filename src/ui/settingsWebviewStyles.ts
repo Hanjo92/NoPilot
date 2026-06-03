@@ -284,6 +284,20 @@ const SETTINGS_SECTION_STYLE_BLOCK = `.settings-section {
   font-family: inherit;
 }
 
+.setting-control textarea {
+  width: 360px;
+  max-width: 100%;
+  min-height: 108px;
+  padding: 8px 10px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, var(--card-border));
+  border-radius: 4px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
 .ollama-endpoint-control {
   display: flex;
   align-items: center;
@@ -355,6 +369,15 @@ const SETTINGS_NOTE_STYLE_BLOCK = `.settings-note {
   color: var(--vscode-descriptionForeground);
   font-size: 0.8em;
   line-height: 1.5;
+}
+
+.settings-note code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--vscode-textBlockQuote-background, var(--card-bg)) 72%, var(--vscode-editor-background));
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+  font-size: 0.95em;
 }
 
 .provider-usage-panel {
@@ -594,6 +617,7 @@ const SETTINGS_NOTE_STYLE_BLOCK = `.settings-note {
   }
 
   .setting-control input[type="text"],
+  .setting-control textarea,
   .setting-control select,
   .setting-control input[type="number"] {
     width: 100%;

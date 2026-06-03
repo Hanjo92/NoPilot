@@ -44,6 +44,15 @@ test('settings webview only shows Activate for ready providers', () => {
   assert.match(source, /state\.usage\.currentProviderRequests/);
   assert.match(source, /state\.usage\.mostUsedProvider/);
   assert.match(source, /state\.usage\.totalRequests/);
+  assert.match(source, /label: 'Custom Prompt'/);
+  assert.match(source, /commitMessage\.customPrompt/);
+  assert.match(source, /settings\.commitCustomPrompt/);
+  assert.match(source, /Template placeholders:/);
+  assert.match(source, /A non-empty custom prompt overrides the selected format\./);
+  assert.match(source, /function textareaInput\(key, value, placeholder, rows\) \{/);
+  assert.match(source, /if \(!\(target instanceof HTMLInputElement \|\| target instanceof HTMLSelectElement \|\| target instanceof HTMLTextAreaElement\)\) \{/);
+  assert.match(source, /if \(target instanceof HTMLTextAreaElement\) \{/);
+  assert.match(source, /updateSetting\(settingKey, target\.value\);/);
   assert.match(source, /function clampNumberInputValue\(value, min, max\) \{/);
   assert.match(source, /const parsedValue = parseInt\(target\.value, 10\);/);
   assert.match(source, /if \(Number\.isNaN\(parsedValue\)\) \{/);

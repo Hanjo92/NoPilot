@@ -43,6 +43,8 @@ export interface CommitMessageRequest {
   language: string;
   /** Message format */
   format: 'conventional' | 'simple';
+  /** Optional user-defined prompt template that overrides built-in format instructions */
+  customPrompt?: string;
 }
 
 // ─── Provider ───
@@ -151,5 +153,6 @@ export interface WebviewState {
     openAiCompatibleBaseUrl: string;
     commitLanguage: string;
     commitFormat: string;
+    commitCustomPrompt: string;
   };
 }

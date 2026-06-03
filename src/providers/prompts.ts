@@ -69,17 +69,6 @@ RULES:
  * Builds the prompt for commit message generation.
  */
 export function buildCommitMessagePrompt(request: CommitMessageRequest): string {
-  const formatInstructions =
-    request.format === 'conventional'
-      ? `Follow the Conventional Commits format:
-- First line: type(scope): imperative mood description (max 72 chars)
-- Types: feat, fix, refactor, docs, style, test, chore, perf, build, ci
-- Optionally add a blank line followed by bullet points for complex changes
-- Scope is optional but recommended`
-      : `Write a simple, clear commit message:
-- First line: imperative mood description (max 72 chars)
-- Optionally add details on the next lines`;
-
   const languageMap: Record<string, string> = {
     en: 'English',
     ko: 'Korean',
@@ -90,6 +79,32 @@ export function buildCommitMessagePrompt(request: CommitMessageRequest): string 
     de: 'German',
   };
   const lang = languageMap[request.language] || request.language;
+
+  if (request.customPrompt?.trim()) {
+    const customPrompt = request.customPrompt
+      .replaceAll('{{diff}}', request.diff)
+      .replaceAll('{{language}}', lang);
+
+    return `You are an expert at writing concise, descriptive Git commit messages.
+Follow the user's custom instructions exactly and do not apply NoPilot's default format preset.
+
+RULES:
+- Return ONLY the commit message. No markdown, no backticks, no extra explanation.
+
+Custom instructions:
+${customPrompt}`;
+  }
+
+  const formatInstructions =
+    request.format === 'conventional'
+      ? `Follow the Conventional Commits format:
+- First line: type(scope): imperative mood description (max 72 chars)
+- Types: feat, fix, refactor, docs, style, test, chore, perf, build, ci
+- Optionally add a blank line followed by bullet points for complex changes
+- Scope is optional but recommended`
+      : `Write a simple, clear commit message:
+- First line: imperative mood description (max 72 chars)
+- Optionally add details on the next lines`;
 
   return `You are an expert at writing concise, descriptive Git commit messages.
 Analyze the following diff and generate a commit message.

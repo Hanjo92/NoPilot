@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildCompletionPrompt } from './prompts';
+import { buildCommitMessagePrompt, buildCompletionPrompt } from './prompts';
 
 test('buildCompletionPrompt uses a leaner prompt for automatic inline requests', () => {
   const prompt = buildCompletionPrompt({
@@ -46,4 +46,31 @@ test('buildCompletionPrompt keeps the fuller prompt for explicit inline requests
 
   assert.match(prompt, /RULES:/);
   assert.match(prompt, /logical completion \(a single expression, line, or block\)/);
+});
+
+test('buildCommitMessagePrompt uses preset format instructions when no custom prompt is configured', () => {
+  const prompt = buildCommitMessagePrompt({
+    diff: 'diff --git a/file.ts b/file.ts',
+    language: 'en',
+    format: 'conventional',
+  });
+
+  assert.match(prompt, /Follow the Conventional Commits format/);
+  assert.match(prompt, /Write the message in English/);
+  assert.match(prompt, /Diff:\ndiff --git a\/file\.ts b\/file\.ts/);
+});
+
+test('buildCommitMessagePrompt expands custom placeholders and skips preset format instructions', () => {
+  const prompt = buildCommitMessagePrompt({
+    diff: 'diff --git a/file.ts b/file.ts',
+    language: 'ko',
+    format: 'simple',
+    customPrompt: 'Write the message in {{language}}. Review this diff:\n{{diff}}',
+  });
+
+  assert.match(prompt, /Follow the user's custom instructions exactly/);
+  assert.match(prompt, /Write the message in Korean/);
+  assert.match(prompt, /Review this diff:\ndiff --git a\/file\.ts b\/file\.ts/);
+  assert.doesNotMatch(prompt, /Write a simple, clear commit message/);
+  assert.doesNotMatch(prompt, /Follow the Conventional Commits format/);
 });
