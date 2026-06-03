@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="NoPilot icon">
+  <defs>
+    <radialGradient id="bg" cx="32%" cy="26%" r="92%">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="42%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </radialGradient>
+    <linearGradient id="plate" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="18%" x2="82%" y1="10%" y2="90%">
+      <stop offset="0%" stop-color="#bfdbfe"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="slash" x1="0%" x2="0%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#dbeafe"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0f172a" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <circle cx="128" cy="128" r="112" fill="url(#bg)"/>
+  <circle cx="128" cy="128" r="104" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2"/>
+  <circle cx="128" cy="128" r="96" fill="none" stroke="rgba(15,23,42,.18)" stroke-width="10"/>
+  <g filter="url(#shadow)">
+    <rect x="52" y="52" width="152" height="152" rx="40" fill="url(#plate)" stroke="url(#rim)" stroke-width="4"/>
+    <path d="M70 78c11-13 27-20 46-20h70v20H70Z" fill="rgba(255,255,255,.11)"/>
+    <rect x="64" y="64" width="128" height="128" rx="30" fill="none" stroke="rgba(219,234,254,.3)" stroke-width="2"/>
+  </g>
+  <g transform="translate(30 30) scale(8.1667)">
+    <path fill="#eff6ff" d="M3.5 5.5h3.2l4.1 6.4V5.5h3.2v13h-3.2l-4.1-6.4v6.4H3.5z"/>
+    <path fill="url(#slash)" d="M12.3 4.5h2.3l-2 15H10.3z"/>
+    <path fill="#eff6ff" fill-rule="evenodd" d="M15.7 5.5h3.2v13h-3.2zM18.2 5.5h2.1c2.5 0 3.9 1.5 3.9 4s-1.4 4.1-3.9 4.1h-2.1zM19.5 8.2h1.1c.8 0 1.3.4 1.3 1.2s-.5 1.3-1.3 1.3h-1.1z"/>
+  </g>
+</svg>
