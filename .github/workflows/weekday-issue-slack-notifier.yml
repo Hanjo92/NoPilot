@@ -1,0 +1,37 @@
+name: Weekday Issue Slack Notifier
+
+on:
+  schedule:
+    - cron: "0 0 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: Optional lookback override in hours for a manual run.
+        required: false
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+
+concurrency:
+  group: weekday-issue-slack-notifier
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Notify Slack about newly created issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NOTIFIER_LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '' }}
+          ISSUE_NOTIFIER_TIME_ZONE: Asia/Seoul
+          ISSUE_NOTIFIER_WORKFLOW_FILE: weekday-issue-slack-notifier.yml
+          SLACK_ISSUE_TARGET_NAME: ${{ vars.SLACK_ISSUE_TARGET_NAME }}
+          SLACK_ISSUE_WEBHOOK_URL: ${{ secrets.SLACK_ISSUE_WEBHOOK_URL }}
+        run: node .github/scripts/weekday-issue-slack-notifier.mjs

@@ -153,6 +153,7 @@ Do not commit real API keys, internal gateway URLs, or temporary tunnel URLs int
 - Contributing: [CONTRIBUTING.md](./CONTRIBUTING.md)
 - Code of Conduct: [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
 - Security: [SECURITY.md](./SECURITY.md)
+- Maintainer automation: [docs/operations/weekday-issue-slack-notifier.md](./docs/operations/weekday-issue-slack-notifier.md)
 
 ---
 
