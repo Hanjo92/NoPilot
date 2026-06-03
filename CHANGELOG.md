@@ -6,9 +6,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-06-04
+
 ### Added
 
 - Custom `nopilot.commitMessage.customPrompt` support for AI-generated commit messages, including `{{diff}}` and `{{language}}` placeholders and settings UI support.
+
+### Changed
+
+- Refreshed the Marketplace and Activity Bar icons.
+
+### Fixed
+
+- Kept late automatic inline completion results available when VS Code transiently cancels the original inline request, so cached ghost text can be re-requested and shown.
 
 ## [0.3.3] - 2026-06-02
 

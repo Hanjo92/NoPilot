@@ -2,7 +2,7 @@
   "name": "nopilot",
   "displayName": "NoPilot",
   "description": "Provider-switching AI coding for VS Code with inline completions, inline chat, commit messages, usage visibility, and local or remote model endpoints.",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "publisher": "hanjo92",
   "license": "MIT",
   "icon": "media/icon.png",
