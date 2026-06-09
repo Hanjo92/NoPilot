@@ -67,12 +67,14 @@ test('manifest marketplace copy reflects current NoPilot workflow', () => {
   const manifest = readManifest();
 
   assert.match(manifest.description ?? '', /Provider-switching AI coding/);
+  assert.match(manifest.description ?? '', /chat panel/);
   assert.ok(manifest.keywords?.includes('provider switcher'));
   assert.ok(manifest.keywords?.includes('activity bar'));
+  assert.ok(manifest.keywords?.includes('chat panel'));
   assert.ok(manifest.keywords?.includes('usage dashboard'));
 });
 
-test('manifest contributes NoPilot activity bar menu view', () => {
+test('manifest contributes NoPilot activity bar menu and chat views', () => {
   const manifest = readManifest();
   const activityBarViews = manifest.contributes?.viewsContainers?.activitybar ?? [];
   const noPilotContainer = activityBarViews.find((view) => view.id === 'nopilot');
@@ -81,6 +83,7 @@ test('manifest contributes NoPilot activity bar menu view', () => {
   assert.equal(noPilotContainer?.title, 'NoPilot');
   assert.equal(noPilotContainer?.icon, 'media/nopilot-activity.svg');
   assert.ok(existsSync(path.resolve(process.cwd(), noPilotContainer?.icon ?? '')));
+  assert.ok(noPilotViews.some((view) => view.id === 'nopilot.chatView' && view.name === 'Chat'));
   assert.ok(noPilotViews.some((view) => view.id === 'nopilot.menu' && view.name === 'Menu'));
 });
 
@@ -135,8 +138,10 @@ test('manifest copy reflects model-level selection behavior', () => {
   const commands = manifest.contributes?.commands ?? [];
   const properties = manifest.contributes?.configuration?.properties ?? {};
   const switchCommand = commands.find((command) => command.command === 'nopilot.switchProvider');
+  const openChatCommand = commands.find((command) => command.command === 'nopilot.openChatPanel');
 
   assert.equal(switchCommand?.title, 'NoPilot: Select Provider / Model');
+  assert.equal(openChatCommand?.title, 'NoPilot: Open Chat Panel');
   assert.equal(
     properties['nopilot.model']?.description,
     'Optional VS Code LM model key override. Leave empty to use the provider default or choose a model from NoPilot.'

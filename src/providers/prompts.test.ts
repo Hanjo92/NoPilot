@@ -48,6 +48,33 @@ test('buildCompletionPrompt keeps the fuller prompt for explicit inline requests
   assert.match(prompt, /logical completion \(a single expression, line, or block\)/);
 });
 
+test('buildCompletionPrompt supports panel chat requests with transcript and editor context', () => {
+  const prompt = buildCompletionPrompt({
+    mode: 'chat',
+    prefix: 'function add(a, b) {\n  return ',
+    suffix: '\n}\n',
+    language: 'typescript',
+    filename: 'math.ts',
+    chatPrompt: 'How should I add validation here?',
+    chatHistory: [
+      { role: 'user', content: 'Review this helper.' },
+      { role: 'assistant', content: 'It is concise but assumes numeric inputs.' },
+    ],
+    selection: 'return a + b;',
+    maxTokens: 768,
+  });
+
+  assert.match(prompt, /VS Code chat panel/);
+  assert.match(prompt, /<CHAT_HISTORY>/);
+  assert.match(prompt, /User:\nReview this helper\./);
+  assert.match(prompt, /Assistant:\nIt is concise but assumes numeric inputs\./);
+  assert.match(prompt, /<SELECTED_CODE>/);
+  assert.match(prompt, /return a \+ b;/);
+  assert.match(prompt, /<LATEST_USER_REQUEST>/);
+  assert.match(prompt, /How should I add validation here\?/);
+  assert.match(prompt, /markdown code fences/);
+});
+
 test('buildCommitMessagePrompt uses preset format instructions when no custom prompt is configured', () => {
   const prompt = buildCommitMessagePrompt({
     diff: 'diff --git a/file.ts b/file.ts',

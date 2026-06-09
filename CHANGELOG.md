@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Added a persistent NoPilot chat panel in the Activity Bar with active-editor context, multi-turn conversation history, and insert-or-replace actions for assistant replies.
+
 ## [0.3.4] - 2026-06-04
 
 ### Added

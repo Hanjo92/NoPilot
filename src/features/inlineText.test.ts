@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   cleanInlineCompletionText,
+  extractFirstMarkdownCodeBlock,
   extractReferencedWords,
   getInlineRequestPolicy,
   getInlineStopSequences,
@@ -13,6 +14,14 @@ test('stripMarkdownCodeFences removes fenced wrapper from model output', () => {
   const cleaned = stripMarkdownCodeFences('```ts\nconst value = 1;\n```');
 
   assert.equal(cleaned, 'const value = 1;');
+});
+
+test('extractFirstMarkdownCodeBlock finds a fenced code block inside mixed chat output', () => {
+  const extracted = extractFirstMarkdownCodeBlock(
+    'Use a guard clause first.\n\n```ts\nif (!value) {\n  return;\n}\n```'
+  );
+
+  assert.equal(extracted, 'if (!value) {\n  return;\n}');
 });
 
 test('extractReferencedWords finds PascalCase symbols from recent prefix', () => {
