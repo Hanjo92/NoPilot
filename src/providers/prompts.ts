@@ -1,5 +1,19 @@
 import { CompletionRequest, CommitMessageRequest } from '../types';
 
+function buildChatHistoryBlock(request: CompletionRequest): string {
+  const chatHistory = request.chatHistory ?? [];
+
+  if (chatHistory.length === 0) {
+    return '';
+  }
+
+  const transcript = chatHistory
+    .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}:\n${message.content}`)
+    .join('\n\n');
+
+  return `\n<CHAT_HISTORY>\n${transcript}\n</CHAT_HISTORY>\n`;
+}
+
 /**
  * Builds the prompt for inline code completion.
  * Uses a strict Fill-in-the-Middle (FIM) approach.
@@ -11,6 +25,31 @@ export function buildCompletionPrompt(request: CompletionRequest): string {
   const currentBlock = request.currentBlockContext
     ? `\n<CURRENT_BLOCK>\n${request.currentBlockContext}\n</CURRENT_BLOCK>\n`
     : '';
+  const chatHistoryBlock = buildChatHistoryBlock(request);
+
+  if (request.chatPrompt?.trim()) {
+    const selectionBlock = request.selection?.trim()
+      ? `\n<SELECTED_CODE>\n${request.selection}\n</SELECTED_CODE>\n`
+      : '';
+    const surroundingContextBlock =
+      request.prefix || request.suffix
+        ? `\n<EDITOR_CONTEXT>\n<CONTEXT_BEFORE>${request.prefix}</CONTEXT_BEFORE>\n<CONTEXT_AFTER>${request.suffix}</CONTEXT_AFTER>\n</EDITOR_CONTEXT>\n`
+        : '';
+
+    return `You are NoPilot, a coding assistant responding inside a VS Code chat panel.
+Use the editor context when it is relevant, but answer the user's latest request directly.
+
+File: ${request.filename} (${request.language})${selectionBlock}${surroundingContextBlock}${chatHistoryBlock}
+<LATEST_USER_REQUEST>
+${request.chatPrompt}
+</LATEST_USER_REQUEST>
+
+RULES:
+1. Answer the latest user request directly.
+2. If you provide code, wrap it in markdown code fences.
+3. If the provided editor context is insufficient, say what is missing.
+4. Do not claim that you already changed files or ran commands unless the user explicitly asked for a plan only.`;
+  }
 
   if (request.instruction) {
     return `You are a strict code editing Assistant.

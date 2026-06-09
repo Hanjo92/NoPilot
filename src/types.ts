@@ -19,6 +19,10 @@ export interface CompletionRequest {
   currentBlockContext?: string;
   /** If provided, this is an Inline Chat replacement request, not FIM */
   instruction?: string;
+  /** If provided, this is a chat-panel request rather than an inline edit */
+  chatPrompt?: string;
+  /** Prior chat turns for panel-style conversational requests */
+  chatHistory?: ChatConversationMessage[];
   /** The code block the user selected to be replaced */
   selection?: string;
   /** Stop tokens for limiting generation */
@@ -32,6 +36,11 @@ export interface CompletionRequest {
 export interface CompletionResponse {
   /** The suggested code text */
   text: string;
+}
+
+export interface ChatConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 // ─── Commit Message ───

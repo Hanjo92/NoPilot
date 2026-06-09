@@ -1,6 +1,6 @@
 # NoPilot
 
-> Provider-switching AI coding for VS Code. Use inline completions, inline chat, commit messages, usage-aware provider controls, and local or remote model endpoints from one NoPilot menu.
+> Provider-switching AI coding for VS Code. Use a persistent chat panel, inline completions, inline chat, commit messages, usage-aware provider controls, and local or remote model endpoints from one NoPilot menu.
 
 NoPilot gives VS Code a lightweight AI coding workflow without locking you to one provider. Open the NoPilot Activity Bar entry, choose a provider first, then choose a model from that provider. You can use VS Code Language Models, Claude, OpenAI/GPT, Gemini, OpenAI-compatible APIs, and local or remote Ollama servers.
 
@@ -9,7 +9,8 @@ NoPilot gives VS Code a lightweight AI coding workflow without locking you to on
 
 ## Highlights
 
-- **Activity Bar control center**: Open NoPilot from the VS Code Activity Bar and jump to settings, provider/model selection, API keys, inline suggestion toggles, or commit message generation.
+- **Activity Bar control center**: Open NoPilot from the VS Code Activity Bar and jump to the chat panel, settings, provider/model selection, API keys, inline suggestion toggles, or commit message generation.
+- **Persistent chat panel**: Keep a running conversation in the sidebar and ground responses in the current file, cursor neighborhood, or active selection.
 - **Provider-first model picker**: Choose the provider first, then pick from that provider's models instead of scanning one long mixed model list.
 - **Settings dashboard**: Activate providers, set API keys, refresh live model lists, configure endpoints, and review request usage in one webview.
 - **Usage visibility**: See current provider requests, total requests, top provider, and provider share in the status bar and settings dashboard.
@@ -22,7 +23,7 @@ NoPilot gives VS Code a lightweight AI coding workflow without locking you to on
 ## Getting Started
 
 1. Install NoPilot.
-2. Open the NoPilot icon in the VS Code Activity Bar, or run **NoPilot: Open Settings** from the Command Palette.
+2. Open the NoPilot icon in the VS Code Activity Bar, or run **NoPilot: Open Chat Panel** or **NoPilot: Open Settings** from the Command Palette.
 3. Configure a provider:
    - **VS Code LM**: Uses language models already available through VS Code.
    - **Anthropic, OpenAI, Gemini**: Save an API key, then choose a model.
@@ -36,6 +37,7 @@ NoPilot gives VS Code a lightweight AI coding workflow without locking you to on
 The NoPilot Activity Bar entry opens a compact sidebar menu:
 
 - **Open Settings**: Open the provider and extension settings dashboard.
+- **Open Chat Panel**: Open the persistent NoPilot chat view inside the Activity Bar.
 - **Select Provider / Model**: Pick a provider first, then a model from that provider.
 - **Set API Key**: Save or change credentials through VS Code SecretStorage.
 - **Toggle Inline Suggestions**: Enable or disable automatic ghost text.
@@ -91,6 +93,10 @@ Remote Ollama mode can automatically use leaner automatic inline requests when l
 - `Tab`: Accept inline suggestions.
 - `Ctrl+I` on Windows/Linux or `Cmd+I` on macOS: Open Inline Chat for the current selection.
 - Source Control magic wand: Generate a commit message from the current Git diff.
+
+## Chat Panel
+
+Open **NoPilot: Open Chat Panel** to start a running conversation in the Activity Bar. The panel automatically includes the active file name, language, nearby editor context, and the current selection when one exists. Assistant replies can be inserted at the cursor or replace the current selection directly from the panel.
 
 ## Important Settings
 

@@ -22,6 +22,16 @@ export function stripMarkdownCodeFences(text: string): string {
   return cleaned;
 }
 
+export function extractFirstMarkdownCodeBlock(text: string): string | undefined {
+  const fenceMatch = text.match(/```[\w-]*\n([\s\S]*?)\n?```/);
+
+  if (!fenceMatch) {
+    return undefined;
+  }
+
+  return fenceMatch[1];
+}
+
 export interface InlineRequestPolicy {
   skip: boolean;
   includeAdditionalContext: boolean;

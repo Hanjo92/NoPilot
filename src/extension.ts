@@ -9,6 +9,7 @@ import { NoPilotMenuProvider } from './ui/noPilotMenuTree';
 import { handleInlineChat } from './features/inlineChat';
 import { promptAndSaveProviderApiKey } from './providers/providerCredentials';
 import { getProviderModelConfigKey, getProviderModelSettingScope } from './providers/providerConfig';
+import { NoPilotChatViewProvider } from './ui/chatView';
 import type { ProviderId } from './types';
 import { log, logError, getOutputChannel } from './utils/logger';
 import { getNoPilotStatusBarPresentation } from './ui/statusBarPresentation';
@@ -56,6 +57,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     )
   );
 
+  const chatViewProvider = new NoPilotChatViewProvider(providerManager);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      NoPilotChatViewProvider.viewType,
+      chatViewProvider,
+      { webviewOptions: { retainContextWhenHidden: true } }
+    )
+  );
+  context.subscriptions.push(chatViewProvider);
+
   // ── Status Bar ──
   statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
@@ -101,6 +112,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // ── Commands ──
 
   // Inline Chat
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nopilot.openChatPanel', async () => {
+      await chatViewProvider.show();
+    })
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand('nopilot.inlineChat', () => {
       handleInlineChat(providerManager);

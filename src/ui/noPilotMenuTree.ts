@@ -9,6 +9,12 @@ interface NoPilotMenuAction {
 
 const MENU_ACTIONS: NoPilotMenuAction[] = [
   {
+    label: 'Open Chat Panel',
+    description: 'Open the persistent NoPilot chat panel in the Activity Bar',
+    command: 'nopilot.openChatPanel',
+    icon: new vscode.ThemeIcon('comment-discussion'),
+  },
+  {
     label: 'Open Settings',
     description: 'Open the NoPilot settings dashboard',
     command: 'nopilot.openSettings',
