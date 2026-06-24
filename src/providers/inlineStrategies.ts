@@ -1,5 +1,5 @@
 import type { CompletionRequest, ProviderId } from '../types';
-import { buildCompletionPrompt } from './prompts';
+import { buildCompletionPrompt, escapePromptControlTags } from './prompts';
 
 export type InlineStrategyId = 'chat' | 'vscode-lm' | 'ollama' | 'shared-chat';
 
@@ -48,10 +48,10 @@ function buildVscodeLmInlinePrompt(request: CompletionRequest): string {
 
 function buildOllamaInlinePrompt(request: CompletionRequest): string {
   const contextBlock = request.additionalContext
-    ? `\nADDITIONAL_CONTEXT:\n${request.additionalContext}\n`
+    ? `\nADDITIONAL_CONTEXT:\n${escapePromptControlTags(request.additionalContext)}\n`
     : '\n';
   const currentBlock = request.currentBlockContext
-    ? `CURRENT_BLOCK:\n${request.currentBlockContext}\n\n`
+    ? `CURRENT_BLOCK:\n${escapePromptControlTags(request.currentBlockContext)}\n\n`
     : '';
   const completionHint = request.mode === 'automatic'
     ? 'Prefer the shortest correct completion.'
@@ -60,7 +60,7 @@ function buildOllamaInlinePrompt(request: CompletionRequest): string {
   return `Return only the missing code at the cursor.${contextBlock}${currentBlock}Language: ${request.language}
 File: ${request.filename}
 
-<CONTEXT_BEFORE>${request.prefix}</CONTEXT_BEFORE><CURSOR><CONTEXT_AFTER>${request.suffix}</CONTEXT_AFTER>
+<CONTEXT_BEFORE>${escapePromptControlTags(request.prefix)}</CONTEXT_BEFORE><CURSOR><CONTEXT_AFTER>${escapePromptControlTags(request.suffix)}</CONTEXT_AFTER>
 
 Rules:
 - Output code only.

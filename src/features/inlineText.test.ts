@@ -24,6 +24,18 @@ test('extractFirstMarkdownCodeBlock finds a fenced code block inside mixed chat 
   assert.equal(extracted, 'if (!value) {\n  return;\n}');
 });
 
+test('markdown fence helpers accept info strings with symbols or extra metadata', () => {
+  const stripped = stripMarkdownCodeFences(
+    '```c++ title=\"example.cpp\"\nstd::vector<int> values;\n```'
+  );
+  const extracted = extractFirstMarkdownCodeBlock(
+    'Explanation first.\n```tsx title=\"Widget.tsx\"\nreturn <Widget />;\n```\nMore text.'
+  );
+
+  assert.equal(stripped, 'std::vector<int> values;');
+  assert.equal(extracted, 'return <Widget />;');
+});
+
 test('extractReferencedWords finds PascalCase symbols from recent prefix', () => {
   const words = extractReferencedWords('const model = new ShopModel();');
 

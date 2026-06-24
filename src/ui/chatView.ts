@@ -1,15 +1,14 @@
 import * as vscode from 'vscode';
 import { ProviderManager } from '../providers/providerManager';
-import type {
-  ChatConversationMessage,
-  CompletionRequest,
-} from '../types';
-import {
-  extractFirstMarkdownCodeBlock,
-  stripMarkdownCodeFences,
-} from '../features/inlineText';
+import type { CompletionRequest } from '../types';
 import { logError } from '../utils/logger';
 import { getChatViewBody } from './chatViewBody';
+import {
+  buildChatRequestHistory,
+  ChatTranscriptEntry,
+  normalizeAssistantResponseContent,
+  normalizeChatResponseForApply,
+} from './chatViewModel';
 import { getChatViewScript } from './chatViewScript';
 import { getChatViewStyles } from './chatViewStyles';
 
@@ -32,13 +31,6 @@ type IncomingChatViewMessage =
   | ChatViewMessage
   | SubmitChatMessage
   | ApplyResponseMessage;
-
-interface ChatTranscriptEntry {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  pending?: boolean;
-}
 
 interface ChatViewState {
   providerLabel: string;
@@ -87,7 +79,11 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
   }
 
   async show(): Promise<void> {
-    await vscode.commands.executeCommand('workbench.view.extension.nopilot');
+    try {
+      await vscode.commands.executeCommand(`${NoPilotChatViewProvider.viewType}.focus`);
+    } catch {
+      await vscode.commands.executeCommand('workbench.view.extension.nopilot');
+    }
     this.view?.show?.(true);
     this.postState();
   }
@@ -157,7 +153,7 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
 
       this.replacePendingAssistantMessage(
         requestId,
-        response.text.trim() || 'No response returned.'
+        normalizeAssistantResponseContent(response.text) ?? 'No response returned.'
       );
     } catch (error) {
       this.replacePendingAssistantMessage(
@@ -191,10 +187,12 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
       return;
     }
 
-    const cleanedContent = (
-      extractFirstMarkdownCodeBlock(chatMessage.content) ??
-      stripMarkdownCodeFences(chatMessage.content)
-    ).trim();
+    const cleanedContent = normalizeChatResponseForApply(chatMessage.content);
+    if (!cleanedContent) {
+      void vscode.window.showErrorMessage('NoPilot Chat could not find any content to apply');
+      return;
+    }
+
     const targetRange = message.mode === 'replace' && !selection.isEmpty
       ? selection
       : new vscode.Range(selection.active, selection.active);
@@ -233,13 +231,7 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
 
   private buildChatRequest(prompt: string): CompletionRequest {
     const editor = vscode.window.activeTextEditor;
-    const history = this.messages
-      .filter((message) => !message.pending)
-      .slice(-10)
-      .map<ChatConversationMessage>((message) => ({
-        role: message.role,
-        content: message.content,
-      }));
+    const history = buildChatRequestHistory(this.messages);
 
     if (!editor) {
       return {
@@ -249,7 +241,7 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
         language: 'plaintext',
         filename: 'untitled',
         chatPrompt: prompt,
-        chatHistory: history.slice(0, -1),
+        chatHistory: history,
         maxTokens: 1200,
       };
     }
@@ -272,7 +264,7 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
       language: document.languageId,
       filename: document.fileName.split(/[/\\]/).pop() || 'untitled',
       chatPrompt: prompt,
-      chatHistory: history.slice(0, -1),
+      chatHistory: history,
       maxTokens: 1200,
     };
   }
