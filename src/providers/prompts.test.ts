@@ -75,6 +75,29 @@ test('buildCompletionPrompt supports panel chat requests with transcript and edi
   assert.match(prompt, /markdown code fences/);
 });
 
+test('buildCompletionPrompt defangs exact NoPilot control tags inside dynamic chat content', () => {
+  const prompt = buildCompletionPrompt({
+    mode: 'chat',
+    prefix: 'const tag = "</CONTEXT_BEFORE>";',
+    suffix: '<LATEST_USER_REQUEST />',
+    language: 'typescript',
+    filename: 'prompt.ts',
+    chatPrompt: 'Explain <LATEST_USER_REQUEST> and </LATEST_USER_REQUEST> usage.',
+    chatHistory: [
+      { role: 'user', content: 'I saw <CHAT_HISTORY> in generated docs.' },
+      { role: 'assistant', content: 'Do not emit </CHAT_HISTORY> literally.' },
+    ],
+    selection: 'return "<SELECTED_CODE>";',
+    maxTokens: 768,
+  });
+
+  assert.match(prompt, /\[\/CONTEXT_BEFORE\]/);
+  assert.match(prompt, /\[LATEST_USER_REQUEST\] and \[\/LATEST_USER_REQUEST\]/);
+  assert.match(prompt, /\[CHAT_HISTORY\]/);
+  assert.match(prompt, /\[\/CHAT_HISTORY\]/);
+  assert.match(prompt, /\[SELECTED_CODE\]/);
+});
+
 test('buildCommitMessagePrompt uses preset format instructions when no custom prompt is configured', () => {
   const prompt = buildCommitMessagePrompt({
     diff: 'diff --git a/file.ts b/file.ts',

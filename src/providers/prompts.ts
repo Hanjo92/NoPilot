@@ -1,4 +1,29 @@
-import { CompletionRequest, CommitMessageRequest } from '../types';
+import type { CompletionRequest, CommitMessageRequest } from '../types';
+
+const PROMPT_CONTROL_TAGS = [
+  'ADDITIONAL_CONTEXT',
+  'CURRENT_BLOCK',
+  'CHAT_HISTORY',
+  'SELECTED_CODE',
+  'EDITOR_CONTEXT',
+  'CONTEXT_BEFORE',
+  'CONTEXT_AFTER',
+  'LATEST_USER_REQUEST',
+  'SELECTION',
+  'INSTRUCTION',
+] as const;
+
+export function escapePromptControlTags(text: string): string {
+  let escaped = text;
+
+  for (const tag of PROMPT_CONTROL_TAGS) {
+    escaped = escaped
+      .replaceAll(`<${tag}>`, `[${tag}]`)
+      .replaceAll(`</${tag}>`, `[/${tag}]`);
+  }
+
+  return escaped;
+}
 
 function buildChatHistoryBlock(request: CompletionRequest): string {
   const chatHistory = request.chatHistory ?? [];
@@ -8,7 +33,7 @@ function buildChatHistoryBlock(request: CompletionRequest): string {
   }
 
   const transcript = chatHistory
-    .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}:\n${message.content}`)
+    .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}:\n${escapePromptControlTags(message.content)}`)
     .join('\n\n');
 
   return `\n<CHAT_HISTORY>\n${transcript}\n</CHAT_HISTORY>\n`;
@@ -20,20 +45,20 @@ function buildChatHistoryBlock(request: CompletionRequest): string {
  */
 export function buildCompletionPrompt(request: CompletionRequest): string {
   const contextBlock = request.additionalContext
-    ? `\n<ADDITIONAL_CONTEXT>\n// Snippets from the project to provide context for variables and functions:\n${request.additionalContext}\n</ADDITIONAL_CONTEXT>\n`
+    ? `\n<ADDITIONAL_CONTEXT>\n// Snippets from the project to provide context for variables and functions:\n${escapePromptControlTags(request.additionalContext)}\n</ADDITIONAL_CONTEXT>\n`
     : '';
   const currentBlock = request.currentBlockContext
-    ? `\n<CURRENT_BLOCK>\n${request.currentBlockContext}\n</CURRENT_BLOCK>\n`
+    ? `\n<CURRENT_BLOCK>\n${escapePromptControlTags(request.currentBlockContext)}\n</CURRENT_BLOCK>\n`
     : '';
   const chatHistoryBlock = buildChatHistoryBlock(request);
 
   if (request.chatPrompt?.trim()) {
     const selectionBlock = request.selection?.trim()
-      ? `\n<SELECTED_CODE>\n${request.selection}\n</SELECTED_CODE>\n`
+      ? `\n<SELECTED_CODE>\n${escapePromptControlTags(request.selection)}\n</SELECTED_CODE>\n`
       : '';
     const surroundingContextBlock =
       request.prefix || request.suffix
-        ? `\n<EDITOR_CONTEXT>\n<CONTEXT_BEFORE>${request.prefix}</CONTEXT_BEFORE>\n<CONTEXT_AFTER>${request.suffix}</CONTEXT_AFTER>\n</EDITOR_CONTEXT>\n`
+        ? `\n<EDITOR_CONTEXT>\n<CONTEXT_BEFORE>${escapePromptControlTags(request.prefix)}</CONTEXT_BEFORE>\n<CONTEXT_AFTER>${escapePromptControlTags(request.suffix)}</CONTEXT_AFTER>\n</EDITOR_CONTEXT>\n`
         : '';
 
     return `You are NoPilot, a coding assistant responding inside a VS Code chat panel.
@@ -41,7 +66,7 @@ Use the editor context when it is relevant, but answer the user's latest request
 
 File: ${request.filename} (${request.language})${selectionBlock}${surroundingContextBlock}${chatHistoryBlock}
 <LATEST_USER_REQUEST>
-${request.chatPrompt}
+${escapePromptControlTags(request.chatPrompt)}
 </LATEST_USER_REQUEST>
 
 RULES:
@@ -57,14 +82,14 @@ Your task is to modify the highly specific <SELECTION> code based on the user's 
 
 File: ${request.filename} (${request.language})
 
-<CONTEXT_BEFORE>${request.prefix}</CONTEXT_BEFORE>
+<CONTEXT_BEFORE>${escapePromptControlTags(request.prefix)}</CONTEXT_BEFORE>
 <SELECTION>
-${request.selection || ''}
+${escapePromptControlTags(request.selection || '')}
 </SELECTION>
-<CONTEXT_AFTER>${request.suffix}</CONTEXT_AFTER>
+<CONTEXT_AFTER>${escapePromptControlTags(request.suffix)}</CONTEXT_AFTER>
 
 <INSTRUCTION>
-${request.instruction}
+${escapePromptControlTags(request.instruction)}
 </INSTRUCTION>
 
 RULES:
@@ -81,7 +106,7 @@ ${contextBlock}${currentBlock}
 Language: ${request.language}
 File: ${request.filename}
 
-<CONTEXT_BEFORE>${request.prefix}</CONTEXT_BEFORE><CURSOR><CONTEXT_AFTER>${request.suffix}</CONTEXT_AFTER>
+<CONTEXT_BEFORE>${escapePromptControlTags(request.prefix)}</CONTEXT_BEFORE><CURSOR><CONTEXT_AFTER>${escapePromptControlTags(request.suffix)}</CONTEXT_AFTER>
 
 Return only the code to insert.
 Prefer the shortest correct completion.
@@ -94,7 +119,7 @@ Do not use markdown or explanations.`;
 ${contextBlock}
 File: ${request.filename} (${request.language})
 
-<CONTEXT_BEFORE>${request.prefix}</CONTEXT_BEFORE><CURSOR><CONTEXT_AFTER>${request.suffix}</CONTEXT_AFTER>
+<CONTEXT_BEFORE>${escapePromptControlTags(request.prefix)}</CONTEXT_BEFORE><CURSOR><CONTEXT_AFTER>${escapePromptControlTags(request.suffix)}</CONTEXT_AFTER>
 
 RULES:
 1. Output ONLY the new code that should replace <CURSOR>.

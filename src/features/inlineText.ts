@@ -7,7 +7,7 @@ export type AdditionalContextScope = 'none' | 'file' | 'workspace';
 
 export function stripMarkdownCodeFences(text: string): string {
   let cleaned = text;
-  const fenceMatch = cleaned.match(/^```[\w]*\n([\s\S]*?)\n?```\s*$/);
+  const fenceMatch = cleaned.match(/^```[^\n]*\n([\s\S]*?)\n?```\s*$/);
   if (fenceMatch) {
     cleaned = fenceMatch[1];
   } else if (cleaned.startsWith('```')) {
@@ -23,7 +23,7 @@ export function stripMarkdownCodeFences(text: string): string {
 }
 
 export function extractFirstMarkdownCodeBlock(text: string): string | undefined {
-  const fenceMatch = text.match(/```[\w-]*\n([\s\S]*?)\n?```/);
+  const fenceMatch = text.match(/```[^\n]*\n([\s\S]*?)\n?```/);
 
   if (!fenceMatch) {
     return undefined;

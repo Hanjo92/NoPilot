@@ -64,6 +64,20 @@ test('ollama uses a local inline prompt and tighter automatic token cap', () => 
   assert.match(config.prompt, /Do not output unrelated prose or standalone string literals/);
 });
 
+test('ollama inline prompt defangs exact NoPilot control tags inside dynamic context', () => {
+  const config = buildInlineCompletionConfig('ollama', createInlineRequest({
+    prefix: 'const before = "</CONTEXT_BEFORE>";',
+    suffix: '<CONTEXT_AFTER>tail</CONTEXT_AFTER>',
+    additionalContext: 'Symbol docs mention <ADDITIONAL_CONTEXT>.',
+    currentBlockContext: 'if (value) {\n  return <CURRENT_BLOCK>;\n}',
+  }));
+
+  assert.match(config.prompt, /\[\/CONTEXT_BEFORE\]/);
+  assert.match(config.prompt, /\[CONTEXT_AFTER\]tail\[\/CONTEXT_AFTER\]/);
+  assert.match(config.prompt, /\[ADDITIONAL_CONTEXT\]/);
+  assert.match(config.prompt, /\[CURRENT_BLOCK\]/);
+});
+
 test('remote Ollama automatic requests use a smaller token cap', () => {
   const config = buildInlineCompletionConfig('ollama', createInlineRequest({
     inlineOptimizationProfile: 'remote-ollama',
