@@ -10,6 +10,8 @@ type FetchLike = (
   text: () => Promise<string>;
 }>;
 
+const DIRECT_MODEL_REFRESH_TIMEOUT_MS = 5000;
+
 interface ResolveDirectProviderModelStateInput {
   providerId: DirectProviderId;
   currentModel: string;
@@ -177,6 +179,7 @@ export async function refreshOpenAIModelCatalog(
     headers: {
       Authorization: `Bearer ${apiKey}`,
     },
+    signal: AbortSignal.timeout(DIRECT_MODEL_REFRESH_TIMEOUT_MS),
   });
   const data = await parseJsonResponse<{ data?: Array<{ id?: string }> }>(response);
 
@@ -198,6 +201,7 @@ export async function refreshOpenAICompatibleModelCatalog(
     headers: {
       Authorization: `Bearer ${apiKey}`,
     },
+    signal: AbortSignal.timeout(DIRECT_MODEL_REFRESH_TIMEOUT_MS),
   });
   const data = await parseJsonResponse<{ data?: Array<{ id?: string }> }>(response);
 
@@ -219,6 +223,7 @@ export async function refreshAnthropicModelCatalog(
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
+    signal: AbortSignal.timeout(DIRECT_MODEL_REFRESH_TIMEOUT_MS),
   });
   const data = await parseJsonResponse<{ data?: Array<{ id?: string }> }>(response);
 
@@ -238,6 +243,7 @@ export async function refreshGeminiModelCatalog(
     `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=200`,
     {
       method: 'GET',
+      signal: AbortSignal.timeout(DIRECT_MODEL_REFRESH_TIMEOUT_MS),
     }
   );
   const data = await parseJsonResponse<{

@@ -62,3 +62,14 @@ test('extension configuration listener refreshes provider state for external mod
   assert.match(source, /mostUsedProvider: mostUsedProvider/);
   assert.match(source, /logError\('Configuration change sync failed', error\);/);
 });
+
+test('extension registers NoPilot views before async provider initialization can stall', () => {
+  const source = readExtensionSource();
+
+  assertAppearsInOrder(source, [
+    'const providerManager = new ProviderManager(authService, context.globalState);',
+    "vscode.window.registerTreeDataProvider(\n      'nopilot.menu',",
+    'vscode.window.registerWebviewViewProvider(\n      NoPilotChatViewProvider.viewType,',
+    'await providerManager.initialize();',
+  ]);
+});

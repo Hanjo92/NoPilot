@@ -24,19 +24,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // ── Services ──
   const authService = new AuthService(context.secrets);
   const gitService = new GitService();
-  await gitService.initialize();
 
   // ── Provider Manager ──
   const providerManager = new ProviderManager(authService, context.globalState);
-  await providerManager.initialize();
   context.subscriptions.push(providerManager);
-
-  // Log provider states
-  const infos = providerManager.getAllProviderInfos();
-  for (const info of infos) {
-    log(`Provider ${info.icon} ${info.name}: ${info.status} | model: ${info.currentModel} | ${info.description}`);
-  }
-  log(`Active provider: ${providerManager.getActiveProviderId()}`);
 
   // ── Features ──
   const inlineProvider = new NoPilotInlineCompletionProvider(providerManager);
@@ -247,6 +238,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       })();
     })
   );
+
+  void gitService.initialize();
+  void (async () => {
+    try {
+      await providerManager.initialize();
+
+      const infos = providerManager.getAllProviderInfos();
+      for (const info of infos) {
+        log(`Provider ${info.icon} ${info.name}: ${info.status} | model: ${info.currentModel} | ${info.description}`);
+      }
+      log(`Active provider: ${providerManager.getActiveProviderId()}`);
+      refreshStatusBar();
+    } catch (error) {
+      logError('Provider initialization failed', error);
+      refreshStatusBar();
+    }
+  })();
 
   console.log('[NoPilot] Extension activated successfully');
 }

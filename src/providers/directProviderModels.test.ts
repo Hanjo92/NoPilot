@@ -5,6 +5,7 @@ import {
   getDirectProviderFallbackModels,
   refreshAnthropicModelCatalog,
   refreshGeminiModelCatalog,
+  refreshOpenAICompatibleModelCatalog,
   refreshOpenAIModelCatalog,
   resolveDirectProviderModelState,
 } from './directProviderModels';
@@ -70,6 +71,25 @@ test('refreshOpenAIModelCatalog filters non-text and snapshot-like models', asyn
     'gpt-4o-mini',
     'o4-mini',
   ]);
+});
+
+test('direct provider model catalog refreshes use abort signals', async () => {
+  await refreshOpenAICompatibleModelCatalog(
+    'secret-key',
+    'https://llm.example.com/v1',
+    async (url: string, init?: RequestInit) => {
+      assert.equal(url, 'https://llm.example.com/v1/models');
+      assert.equal(init?.method, 'GET');
+      assert.ok(init?.signal instanceof AbortSignal);
+
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: async () => JSON.stringify({ data: [{ id: 'qwen2.5-coder' }] }),
+      };
+    }
+  );
 });
 
 test('refreshAnthropicModelCatalog keeps Claude API models in preferred order', async () => {

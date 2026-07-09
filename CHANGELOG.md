@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-07-09
+
+### Fixed
+
+- Registered NoPilot Activity Bar menu and chat view providers before asynchronous provider availability checks so slow OpenAI-compatible endpoints cannot leave the chat panel without a view data provider.
+- Added timeouts to direct provider model catalog refreshes so blocked `/models` endpoints fall back instead of stalling provider initialization.
+
 ## [0.3.5] - 2026-07-09
 
 ### Added

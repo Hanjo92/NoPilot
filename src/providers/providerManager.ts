@@ -126,6 +126,11 @@ export class ProviderManager implements vscode.Disposable {
         applyModelSelection(activeProvider, this.activeModelKey);
       }
     }
+
+    for (const providerId of ProviderManager.SESSION_USAGE_PROVIDER_IDS) {
+      this._onDidChangeProviderState.fire(providerId);
+    }
+    this._onDidChangeProvider.fire(this.activeProviderId);
   }
 
   /** Get the currently active provider */

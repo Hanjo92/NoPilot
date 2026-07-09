@@ -113,6 +113,13 @@ test('provider quick pick descriptions include usage counts without expanding de
   assert.match(source, /return this\.formatRequestCount\(this\.getProviderRequestCount\(providerId\)\);/);
 });
 
+test('provider initialization notifies UI subscribers after async availability checks', () => {
+  const source = readProviderManagerSource();
+
+  assert.match(source, /for \(const providerId of ProviderManager\.SESSION_USAGE_PROVIDER_IDS\) \{\s*this\._onDidChangeProviderState\.fire\(providerId\);\s*\}/);
+  assert.match(source, /this\._onDidChangeProvider\.fire\(this\.activeProviderId\);/);
+});
+
 test('provider quick pick keeps most-used summary out of option rows', () => {
   const source = readProviderManagerSource();
 
