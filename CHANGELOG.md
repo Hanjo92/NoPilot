@@ -6,9 +6,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-07-09
+
 ### Added
 
 - Added a persistent NoPilot chat panel in the Activity Bar with active-editor context, multi-turn conversation history, and insert-or-replace actions for assistant replies.
+
+### Fixed
+
+- Hardened chat panel prompt assembly and response application for control-tag collisions, fenced code blocks, indentation preservation, and empty assistant replies.
+- Hardened the chat panel webview lifecycle so disposed views are cleared, per-view listeners are released, and state update failures do not keep stale webview references alive.
 
 ## [0.3.4] - 2026-06-04
 

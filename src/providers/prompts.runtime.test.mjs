@@ -9,7 +9,7 @@ function loadBuildCompletionPrompt() {
   const source = readFileSync(sourcePath, 'utf8')
     .replace(/import type \{[\s\S]*?\} from '\.\.\/types';\n/, '')
     .replace(/ as const;/g, ';')
-    .replace(/: [A-Za-z_][A-Za-z0-9_<>, \[\]\|]*/g, '')
+    .replace(new RegExp(': [A-Za-z_][A-Za-z0-9_<>, \\[\\]|]*', 'g'), '')
     .replace(/export function /g, 'function ');
 
   const script = new vm.Script(`${source}\nmodule.exports = { buildCompletionPrompt };`, {
@@ -41,12 +41,12 @@ test('buildCompletionPrompt defangs control-tag collisions inside chat prompt co
     maxTokens: 768,
   });
 
-  assert.match(prompt, /const tag = "\[\/CONTEXT_BEFORE\]";/);
-  assert.match(prompt, /<CONTEXT_AFTER><LATEST_USER_REQUEST \/>/);
-  assert.match(prompt, /Explain \[LATEST_USER_REQUEST\] and \[\/LATEST_USER_REQUEST\] usage\./);
-  assert.match(prompt, /I saw \[CHAT_HISTORY\] in generated docs\./);
-  assert.match(prompt, /Do not emit \[\/CHAT_HISTORY\] literally\./);
-  assert.match(prompt, /return "\[SELECTED_CODE\]";/);
+  assert.ok(prompt.includes('const tag = "[/CONTEXT_BEFORE]";'));
+  assert.ok(prompt.includes('<CONTEXT_AFTER><LATEST_USER_REQUEST />'));
+  assert.ok(prompt.includes('Explain [LATEST_USER_REQUEST] and [/LATEST_USER_REQUEST] usage.'));
+  assert.ok(prompt.includes('I saw [CHAT_HISTORY] in generated docs.'));
+  assert.ok(prompt.includes('Do not emit [/CHAT_HISTORY] literally.'));
+  assert.ok(prompt.includes('return "[SELECTED_CODE]";'));
   assert.equal(prompt.match(/<LATEST_USER_REQUEST>/g)?.length, 1);
   assert.equal(prompt.match(/<\/LATEST_USER_REQUEST>/g)?.length, 1);
   assert.equal(prompt.match(/<CHAT_HISTORY>/g)?.length, 1);

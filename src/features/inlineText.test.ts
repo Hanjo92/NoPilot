@@ -26,10 +26,10 @@ test('extractFirstMarkdownCodeBlock finds a fenced code block inside mixed chat 
 
 test('markdown fence helpers accept info strings with symbols or extra metadata', () => {
   const stripped = stripMarkdownCodeFences(
-    '```c++ title=\"example.cpp\"\nstd::vector<int> values;\n```'
+    '```c++ title="example.cpp"\nstd::vector<int> values;\n```'
   );
   const extracted = extractFirstMarkdownCodeBlock(
-    'Explanation first.\n```tsx title=\"Widget.tsx\"\nreturn <Widget />;\n```\nMore text.'
+    'Explanation first.\n```tsx title="Widget.tsx"\nreturn <Widget />;\n```\nMore text.'
   );
 
   assert.equal(stripped, 'std::vector<int> values;');

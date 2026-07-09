@@ -90,12 +90,12 @@ test('normalizeChatResponseForApply trims blank wrapper lines but refuses empty 
 
 test('normalizeChatResponseForApply accepts fenced code info strings with symbols or metadata', () => {
   assert.equal(
-    normalizeChatResponseForApply('```c++ title=\"main.cpp\"\nstd::vector<int> values;\n```'),
+    normalizeChatResponseForApply('```c++ title="main.cpp"\nstd::vector<int> values;\n```'),
     'std::vector<int> values;'
   );
   assert.equal(
     normalizeChatResponseForApply(
-      'Use this version.\n```tsx title=\"Widget.tsx\"\n  return <Widget />;\n```\nIt keeps the JSX intact.'
+      'Use this version.\n```tsx title="Widget.tsx"\n  return <Widget />;\n```\nIt keeps the JSX intact.'
     ),
     '  return <Widget />;'
   );

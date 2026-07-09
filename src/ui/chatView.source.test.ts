@@ -17,11 +17,18 @@ test('chat view provider keeps transcript state, editor context, and apply actio
   assert.match(source, /static readonly viewType = 'nopilot\.chatView';/);
   assert.match(source, /import \{\s*buildChatRequestHistory,\s*ChatTranscriptEntry,\s*normalizeAssistantResponseContent,\s*normalizeChatResponseForApply,\s*\} from '\.\/chatViewModel';/);
   assert.match(source, /private readonly messages: ChatTranscriptEntry\[\] = \[\];/);
+  assert.match(source, /private readonly viewDisposables: vscode\.Disposable\[\] = \[\];/);
   assert.match(source, /this\.providerManager\.onDidChangeProvider\(\(\) => this\.postState\(\)\)/);
   assert.match(source, /vscode\.window\.onDidChangeTextEditorSelection\(\(\) => this\.postState\(\)\)/);
   assert.match(source, /await vscode\.commands\.executeCommand\(`\$\{NoPilotChatViewProvider\.viewType\}\.focus`\);/);
   assert.match(source, /await vscode\.commands\.executeCommand\('workbench\.view\.extension\.nopilot'\);/);
   assert.match(source, /view\.webview\.onDidReceiveMessage\(\(message: IncomingChatViewMessage\) => \{/);
+  assert.match(source, /view\.onDidDispose\(\(\) => \{/);
+  assert.match(source, /if \(this\.view === view\) \{\s*this\.view = undefined;\s*\}/);
+  assert.match(source, /this\.disposeViewDisposables\(\);/);
+  assert.match(source, /private disposeViewDisposables\(\): void \{/);
+  assert.match(source, /\.then\(undefined, \(error\) => \{\s*if \(this\.view === view\) \{\s*this\.view = undefined;\s*this\.disposeViewDisposables\(\);\s*\}/);
+  assert.match(source, /logError\('NoPilot chat panel state update failed', error\);/);
   assert.match(source, /case 'submitChat':/);
   assert.match(source, /case 'applyResponse':/);
   assert.match(source, /chatPrompt: prompt,/);

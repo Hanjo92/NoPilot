@@ -46,6 +46,7 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
   static readonly viewType = 'nopilot.chatView';
   private view: vscode.WebviewView | undefined;
   private readonly disposables: vscode.Disposable[] = [];
+  private readonly viewDisposables: vscode.Disposable[] = [];
   private readonly messages: ChatTranscriptEntry[] = [];
   private isPending = false;
   private errorMessage: string | undefined;
@@ -63,15 +64,22 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
   }
 
   resolveWebviewView(view: vscode.WebviewView): void {
+    this.disposeViewDisposables();
     this.view = view;
     view.webview.options = {
       enableScripts: true,
     };
     view.webview.html = this.getHtml();
 
-    this.disposables.push(
+    this.viewDisposables.push(
       view.webview.onDidReceiveMessage((message: IncomingChatViewMessage) => {
         void this.handleMessage(message);
+      }),
+      view.onDidDispose(() => {
+        if (this.view === view) {
+          this.view = undefined;
+        }
+        this.disposeViewDisposables();
       })
     );
 
@@ -90,6 +98,7 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
 
   dispose(): void {
     this.view = undefined;
+    this.disposeViewDisposables();
     this.disposables.forEach((disposable) => disposable.dispose());
   }
 
@@ -270,14 +279,29 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
   }
 
   private postState(): void {
-    if (!this.view) {
+    const view = this.view;
+    if (!view) {
       return;
     }
 
-    void this.view.webview.postMessage({
-      command: 'updateState',
-      state: this.buildState(),
-    });
+    try {
+      void view.webview.postMessage({
+        command: 'updateState',
+        state: this.buildState(),
+      }).then(undefined, (error) => {
+        if (this.view === view) {
+          this.view = undefined;
+          this.disposeViewDisposables();
+        }
+        logError('NoPilot chat panel state update failed', error);
+      });
+    } catch (error) {
+      if (this.view === view) {
+        this.view = undefined;
+        this.disposeViewDisposables();
+      }
+      logError('NoPilot chat panel state update failed', error);
+    }
   }
 
   private buildState(): ChatViewState {
@@ -335,6 +359,11 @@ ${indentBlock(getChatViewScript())}
   </script>
 </body>
 </html>`;
+  }
+
+  private disposeViewDisposables(): void {
+    const disposables = this.viewDisposables.splice(0);
+    disposables.forEach((disposable) => disposable.dispose());
   }
 }
 
