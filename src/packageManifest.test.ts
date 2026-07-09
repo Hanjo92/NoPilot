@@ -55,6 +55,17 @@ test('manifest activates on startup and first language editing sessions', () => 
   assert.ok(activationEvents.includes('onLanguage'));
 });
 
+test('manifest activates when NoPilot sidebar views and commands are opened', () => {
+  const manifest = readManifest();
+  const activationEvents = manifest.activationEvents ?? [];
+
+  assert.ok(activationEvents.includes('onView:nopilot.chatView'));
+  assert.ok(activationEvents.includes('onView:nopilot.menu'));
+  assert.ok(activationEvents.includes('onCommand:nopilot.openChatPanel'));
+  assert.ok(activationEvents.includes('onCommand:nopilot.openSettings'));
+  assert.ok(activationEvents.includes('onCommand:nopilot.switchProvider'));
+});
+
 test('manifest includes marketplace icon metadata', () => {
   const manifest = readManifest();
 

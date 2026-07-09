@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-07-09
+
+### Fixed
+
+- Explicitly activated NoPilot when the Activity Bar chat/menu views or core commands are opened, preventing VS Code from showing the missing view data provider fallback before extension activation.
+- Reworked chat panel reveal order to open the NoPilot Activity Bar container before focusing the chat view so stale fallback view state is retried through the registered provider.
+
 ## [0.3.6] - 2026-07-09
 
 ### Fixed

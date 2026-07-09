@@ -10,6 +10,16 @@ function readChatViewSource(): string {
   );
 }
 
+function assertAppearsInOrder(source: string, snippets: string[]): void {
+  let cursor = -1;
+
+  for (const snippet of snippets) {
+    const nextIndex = source.indexOf(snippet, cursor + 1);
+    assert.ok(nextIndex > cursor, `Expected snippet to appear after previous snippet: ${snippet}`);
+    cursor = nextIndex;
+  }
+}
+
 test('chat view provider keeps transcript state, editor context, and apply actions wired', () => {
   const source = readChatViewSource();
 
@@ -40,4 +50,15 @@ test('chat view provider keeps transcript state, editor context, and apply actio
   assert.match(source, /Select code before using Replace Selection in NoPilot Chat/);
   assert.match(source, /Selection length: \$\{document\.getText\(selection\)\.length\} characters\./);
   assert.match(source, /Open a file to give the chat panel current-code context\./);
+});
+
+test('chat panel show opens the container before focusing the chat view', () => {
+  const source = readChatViewSource();
+
+  assertAppearsInOrder(source, [
+    "await vscode.commands.executeCommand('workbench.view.extension.nopilot');",
+    'await vscode.commands.executeCommand(`${NoPilotChatViewProvider.viewType}.focus`);',
+    'this.view?.show?.(true);',
+    'this.postState();',
+  ]);
 });

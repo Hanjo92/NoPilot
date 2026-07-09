@@ -88,6 +88,7 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
 
   async show(): Promise<void> {
     try {
+      await vscode.commands.executeCommand('workbench.view.extension.nopilot');
       await vscode.commands.executeCommand(`${NoPilotChatViewProvider.viewType}.focus`);
     } catch {
       await vscode.commands.executeCommand('workbench.view.extension.nopilot');
