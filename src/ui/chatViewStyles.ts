@@ -47,6 +47,13 @@ body {
   line-height: 1.2;
 }
 
+.chat-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .status-panel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -242,6 +249,7 @@ button.secondary:hover {
   }
 
   .chat-header,
+  .chat-header-actions,
   .composer-actions,
   .message-meta {
     flex-direction: column;

@@ -59,11 +59,11 @@ test('manifest activates when NoPilot sidebar views and commands are opened', ()
   const manifest = readManifest();
   const activationEvents = manifest.activationEvents ?? [];
 
-  assert.ok(activationEvents.includes('onView:nopilot.chatView'));
   assert.ok(activationEvents.includes('onView:nopilot.menu'));
   assert.ok(activationEvents.includes('onCommand:nopilot.openChatPanel'));
   assert.ok(activationEvents.includes('onCommand:nopilot.openSettings'));
   assert.ok(activationEvents.includes('onCommand:nopilot.switchProvider'));
+  assert.ok(!activationEvents.includes('onView:nopilot.chatView'));
 });
 
 test('manifest includes marketplace icon metadata', () => {
@@ -85,7 +85,7 @@ test('manifest marketplace copy reflects current NoPilot workflow', () => {
   assert.ok(manifest.keywords?.includes('usage dashboard'));
 });
 
-test('manifest contributes NoPilot activity bar menu and chat views', () => {
+test('manifest contributes NoPilot activity bar menu and standalone chat command', () => {
   const manifest = readManifest();
   const activityBarViews = manifest.contributes?.viewsContainers?.activitybar ?? [];
   const noPilotContainer = activityBarViews.find((view) => view.id === 'nopilot');
@@ -94,8 +94,8 @@ test('manifest contributes NoPilot activity bar menu and chat views', () => {
   assert.equal(noPilotContainer?.title, 'NoPilot');
   assert.equal(noPilotContainer?.icon, 'media/nopilot-activity.svg');
   assert.ok(existsSync(path.resolve(process.cwd(), noPilotContainer?.icon ?? '')));
-  assert.ok(noPilotViews.some((view) => view.id === 'nopilot.chatView' && view.name === 'Chat'));
   assert.ok(noPilotViews.some((view) => view.id === 'nopilot.menu' && view.name === 'Menu'));
+  assert.ok(!noPilotViews.some((view) => view.id === 'nopilot.chatView'));
 });
 
 test('package ignore excludes internal planning artifacts', () => {

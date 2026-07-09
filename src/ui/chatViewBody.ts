@@ -5,7 +5,10 @@ export function getChatViewBody(): string {
       <p class="eyebrow">NoPilot Chat</p>
       <h1>Agent Panel</h1>
     </div>
-    <button id="clearChatButton" class="secondary" type="button">New Chat</button>
+    <div class="chat-header-actions">
+      <button id="refreshConnectionButton" class="secondary" type="button">Refresh Connection</button>
+      <button id="clearChatButton" class="secondary" type="button">New Chat</button>
+    </div>
   </header>
 
   <section class="status-panel">

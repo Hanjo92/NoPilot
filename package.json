@@ -2,7 +2,7 @@
   "name": "nopilot",
   "displayName": "NoPilot",
   "description": "Provider-switching AI coding for VS Code with a chat panel, inline completions, inline chat, commit messages, usage visibility, and local or remote model endpoints.",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "publisher": "hanjo92",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -48,7 +48,6 @@
   "activationEvents": [
     "onLanguage",
     "onStartupFinished",
-    "onView:nopilot.chatView",
     "onView:nopilot.menu",
     "onCommand:nopilot.openChatPanel",
     "onCommand:nopilot.openSettings",
@@ -104,10 +103,6 @@
     },
     "views": {
       "nopilot": [
-        {
-          "id": "nopilot.chatView",
-          "name": "Chat"
-        },
         {
           "id": "nopilot.menu",
           "name": "Menu"

@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-07-09
+
+### Changed
+
+- Moved NoPilot Chat out of the Activity Bar view contribution into a standalone webview panel opened from the NoPilot menu or Command Palette, avoiding VS Code sidebar view-provider fallback state.
+
+### Added
+
+- Added a Refresh Connection action in the chat panel to resync the active provider and resend panel state on demand.
+
 ## [0.3.7] - 2026-07-09
 
 ### Fixed

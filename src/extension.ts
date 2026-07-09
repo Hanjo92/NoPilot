@@ -49,13 +49,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   const chatViewProvider = new NoPilotChatViewProvider(providerManager);
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      NoPilotChatViewProvider.viewType,
-      chatViewProvider,
-      { webviewOptions: { retainContextWhenHidden: true } }
-    )
-  );
   context.subscriptions.push(chatViewProvider);
 
   // ── Status Bar ──

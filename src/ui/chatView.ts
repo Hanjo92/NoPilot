@@ -13,7 +13,7 @@ import { getChatViewScript } from './chatViewScript';
 import { getChatViewStyles } from './chatViewStyles';
 
 interface ChatViewMessage {
-  command: 'requestState' | 'clearChat';
+  command: 'requestState' | 'clearChat' | 'refreshConnection';
 }
 
 interface SubmitChatMessage {
@@ -39,16 +39,18 @@ interface ChatViewState {
   contextDescription: string;
   messages: ChatTranscriptEntry[];
   isPending: boolean;
+  isRefreshing: boolean;
   errorMessage?: string;
 }
 
-export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
-  static readonly viewType = 'nopilot.chatView';
-  private view: vscode.WebviewView | undefined;
+export class NoPilotChatViewProvider implements vscode.Disposable {
+  static readonly panelType = 'nopilot.chatPanel';
+  private panel: vscode.WebviewPanel | undefined;
   private readonly disposables: vscode.Disposable[] = [];
-  private readonly viewDisposables: vscode.Disposable[] = [];
+  private readonly panelDisposables: vscode.Disposable[] = [];
   private readonly messages: ChatTranscriptEntry[] = [];
   private isPending = false;
+  private isRefreshing = false;
   private errorMessage: string | undefined;
   private requestSequence = 0;
 
@@ -63,43 +65,47 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
     );
   }
 
-  resolveWebviewView(view: vscode.WebviewView): void {
-    this.disposeViewDisposables();
-    this.view = view;
-    view.webview.options = {
-      enableScripts: true,
-    };
-    view.webview.html = this.getHtml();
+  async show(): Promise<void> {
+    if (this.panel) {
+      this.panel.reveal(vscode.ViewColumn.Beside);
+      this.postState();
+      return;
+    }
 
-    this.viewDisposables.push(
-      view.webview.onDidReceiveMessage((message: IncomingChatViewMessage) => {
+    this.disposePanelDisposables();
+    this.panel = vscode.window.createWebviewPanel(
+      NoPilotChatViewProvider.panelType,
+      'NoPilot Chat',
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+      }
+    );
+
+    const panel = this.panel;
+    panel.webview.html = this.getHtml();
+
+    this.panelDisposables.push(
+      panel.webview.onDidReceiveMessage((message: IncomingChatViewMessage) => {
         void this.handleMessage(message);
       }),
-      view.onDidDispose(() => {
-        if (this.view === view) {
-          this.view = undefined;
+      panel.onDidDispose(() => {
+        if (this.panel === panel) {
+          this.panel = undefined;
         }
-        this.disposeViewDisposables();
+        this.disposePanelDisposables();
       })
     );
 
     this.postState();
   }
 
-  async show(): Promise<void> {
-    try {
-      await vscode.commands.executeCommand('workbench.view.extension.nopilot');
-      await vscode.commands.executeCommand(`${NoPilotChatViewProvider.viewType}.focus`);
-    } catch {
-      await vscode.commands.executeCommand('workbench.view.extension.nopilot');
-    }
-    this.view?.show?.(true);
-    this.postState();
-  }
-
   dispose(): void {
-    this.view = undefined;
-    this.disposeViewDisposables();
+    const panel = this.panel;
+    this.panel = undefined;
+    this.disposePanelDisposables();
+    panel?.dispose();
     this.disposables.forEach((disposable) => disposable.dispose());
   }
 
@@ -116,6 +122,9 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
         this.errorMessage = undefined;
         this.postState();
         return;
+      case 'refreshConnection':
+        await this.refreshConnection();
+        return;
       case 'applyResponse':
         await this.applyResponse(message);
         return;
@@ -124,6 +133,27 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
         return;
       default:
         return;
+    }
+  }
+
+  private async refreshConnection(): Promise<void> {
+    if (this.isRefreshing) {
+      return;
+    }
+
+    this.isRefreshing = true;
+    this.errorMessage = undefined;
+    this.postState();
+
+    try {
+      await this.providerManager.refreshProviderState(this.providerManager.getActiveProviderId());
+      await this.providerManager.reconcileConfiguredProvider();
+    } catch (error) {
+      this.errorMessage = error instanceof Error ? error.message : String(error);
+      logError('NoPilot chat panel connection refresh failed', error);
+    } finally {
+      this.isRefreshing = false;
+      this.postState();
     }
   }
 
@@ -280,26 +310,26 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
   }
 
   private postState(): void {
-    const view = this.view;
-    if (!view) {
+    const panel = this.panel;
+    if (!panel) {
       return;
     }
 
     try {
-      void view.webview.postMessage({
+      void panel.webview.postMessage({
         command: 'updateState',
         state: this.buildState(),
       }).then(undefined, (error) => {
-        if (this.view === view) {
-          this.view = undefined;
-          this.disposeViewDisposables();
+        if (this.panel === panel) {
+          this.panel = undefined;
+          this.disposePanelDisposables();
         }
         logError('NoPilot chat panel state update failed', error);
       });
     } catch (error) {
-      if (this.view === view) {
-        this.view = undefined;
-        this.disposeViewDisposables();
+      if (this.panel === panel) {
+        this.panel = undefined;
+        this.disposePanelDisposables();
       }
       logError('NoPilot chat panel state update failed', error);
     }
@@ -317,6 +347,7 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
         contextDescription: 'Open a file to give the chat panel current-code context.',
         messages: [...this.messages],
         isPending: this.isPending,
+        isRefreshing: this.isRefreshing,
         errorMessage: this.errorMessage,
       };
     }
@@ -334,6 +365,7 @@ export class NoPilotChatViewProvider implements vscode.WebviewViewProvider, vsco
       contextDescription: selectionDescription,
       messages: [...this.messages],
       isPending: this.isPending,
+      isRefreshing: this.isRefreshing,
       errorMessage: this.errorMessage,
     };
   }
@@ -362,8 +394,8 @@ ${indentBlock(getChatViewScript())}
 </html>`;
   }
 
-  private disposeViewDisposables(): void {
-    const disposables = this.viewDisposables.splice(0);
+  private disposePanelDisposables(): void {
+    const disposables = this.panelDisposables.splice(0);
     disposables.forEach((disposable) => disposable.dispose());
   }
 }

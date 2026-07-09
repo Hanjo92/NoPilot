@@ -12,6 +12,8 @@ test('chat view body exposes transcript, composer, and status regions', () => {
   assert.match(body, /id="chatComposer"/);
   assert.match(body, /id="providerLabel"/);
   assert.match(body, /id="contextLabel"/);
+  assert.match(body, /id="refreshConnectionButton"/);
+  assert.match(body, /Refresh Connection/);
   assert.match(body, /id="clearChatButton"/);
 });
 
@@ -32,7 +34,9 @@ test('chat view script wires request, submit, clear, and apply flows', () => {
   assert.match(script, /vscode\.postMessage\(\{ command: 'requestState' \}\)/);
   assert.match(script, /command: 'submitChat'/);
   assert.match(script, /command: 'clearChat'/);
+  assert.match(script, /command: 'refreshConnection'/);
   assert.match(script, /command: 'applyResponse'/);
+  assert.match(script, /refreshConnectionButton/);
   assert.match(script, /function renderTranscript/);
   assert.match(script, /function renderMessage/);
   assert.match(script, /Insert/);

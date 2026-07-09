@@ -23,21 +23,25 @@ function assertAppearsInOrder(source: string, snippets: string[]): void {
 test('chat view provider keeps transcript state, editor context, and apply actions wired', () => {
   const source = readChatViewSource();
 
-  assert.match(source, /export class NoPilotChatViewProvider implements vscode\.WebviewViewProvider, vscode\.Disposable/);
-  assert.match(source, /static readonly viewType = 'nopilot\.chatView';/);
+  assert.match(source, /export class NoPilotChatViewProvider implements vscode\.Disposable/);
+  assert.match(source, /static readonly panelType = 'nopilot\.chatPanel';/);
+  assert.doesNotMatch(source, /WebviewViewProvider/);
+  assert.doesNotMatch(source, /resolveWebviewView/);
+  assert.match(source, /vscode\.window\.createWebviewPanel\(\s*NoPilotChatViewProvider\.panelType,/);
+  assert.match(source, /retainContextWhenHidden: true/);
   assert.match(source, /import \{\s*buildChatRequestHistory,\s*ChatTranscriptEntry,\s*normalizeAssistantResponseContent,\s*normalizeChatResponseForApply,\s*\} from '\.\/chatViewModel';/);
   assert.match(source, /private readonly messages: ChatTranscriptEntry\[\] = \[\];/);
-  assert.match(source, /private readonly viewDisposables: vscode\.Disposable\[\] = \[\];/);
+  assert.match(source, /private readonly panelDisposables: vscode\.Disposable\[\] = \[\];/);
   assert.match(source, /this\.providerManager\.onDidChangeProvider\(\(\) => this\.postState\(\)\)/);
   assert.match(source, /vscode\.window\.onDidChangeTextEditorSelection\(\(\) => this\.postState\(\)\)/);
-  assert.match(source, /await vscode\.commands\.executeCommand\(`\$\{NoPilotChatViewProvider\.viewType\}\.focus`\);/);
-  assert.match(source, /await vscode\.commands\.executeCommand\('workbench\.view\.extension\.nopilot'\);/);
-  assert.match(source, /view\.webview\.onDidReceiveMessage\(\(message: IncomingChatViewMessage\) => \{/);
-  assert.match(source, /view\.onDidDispose\(\(\) => \{/);
-  assert.match(source, /if \(this\.view === view\) \{\s*this\.view = undefined;\s*\}/);
-  assert.match(source, /this\.disposeViewDisposables\(\);/);
-  assert.match(source, /private disposeViewDisposables\(\): void \{/);
-  assert.match(source, /\.then\(undefined, \(error\) => \{\s*if \(this\.view === view\) \{\s*this\.view = undefined;\s*this\.disposeViewDisposables\(\);\s*\}/);
+  assert.match(source, /panel\.webview\.onDidReceiveMessage\(\(message: IncomingChatViewMessage\) => \{/);
+  assert.match(source, /panel\.onDidDispose\(\(\) => \{/);
+  assert.match(source, /if \(this\.panel === panel\) \{\s*this\.panel = undefined;\s*\}/);
+  assert.match(source, /this\.disposePanelDisposables\(\);/);
+  assert.match(source, /private disposePanelDisposables\(\): void \{/);
+  assert.match(source, /case 'refreshConnection':/);
+  assert.match(source, /await this\.refreshConnection\(\);/);
+  assert.match(source, /await this\.providerManager\.refreshProviderState\(this\.providerManager\.getActiveProviderId\(\)\);/);
   assert.match(source, /logError\('NoPilot chat panel state update failed', error\);/);
   assert.match(source, /case 'submitChat':/);
   assert.match(source, /case 'applyResponse':/);
@@ -52,13 +56,13 @@ test('chat view provider keeps transcript state, editor context, and apply actio
   assert.match(source, /Open a file to give the chat panel current-code context\./);
 });
 
-test('chat panel show opens the container before focusing the chat view', () => {
+test('chat panel show creates the standalone panel before wiring state updates', () => {
   const source = readChatViewSource();
 
   assertAppearsInOrder(source, [
-    "await vscode.commands.executeCommand('workbench.view.extension.nopilot');",
-    'await vscode.commands.executeCommand(`${NoPilotChatViewProvider.viewType}.focus`);',
-    'this.view?.show?.(true);',
+    'this.panel = vscode.window.createWebviewPanel(',
+    'panel.webview.html = this.getHtml();',
+    'panel.webview.onDidReceiveMessage((message: IncomingChatViewMessage) => {',
     'this.postState();',
   ]);
 });

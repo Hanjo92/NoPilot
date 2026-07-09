@@ -19,6 +19,10 @@ document.getElementById('clearChatButton').addEventListener('click', () => {
   vscode.postMessage({ command: 'clearChat' });
 });
 
+document.getElementById('refreshConnectionButton').addEventListener('click', () => {
+  vscode.postMessage({ command: 'refreshConnection' });
+});
+
 document.getElementById('chatTranscript').addEventListener('click', event => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
@@ -73,7 +77,7 @@ function render(state) {
   renderHeader(state);
   renderError(state.errorMessage);
   renderTranscript(state);
-  renderComposer(state.isPending);
+  renderComposer(state);
 }
 
 function renderHeader(state) {
@@ -121,19 +125,27 @@ function renderMessage(message) {
     + '</article>';
 }
 
-function renderComposer(isPending) {
+function renderComposer(state) {
   const textarea = document.getElementById('chatPrompt');
   const button = document.getElementById('sendButton');
   const clearButton = document.getElementById('clearChatButton');
+  const refreshButton = document.getElementById('refreshConnectionButton');
 
-  if (!(textarea instanceof HTMLTextAreaElement) || !(button instanceof HTMLButtonElement) || !(clearButton instanceof HTMLButtonElement)) {
+  if (
+    !(textarea instanceof HTMLTextAreaElement)
+    || !(button instanceof HTMLButtonElement)
+    || !(clearButton instanceof HTMLButtonElement)
+    || !(refreshButton instanceof HTMLButtonElement)
+  ) {
     return;
   }
 
-  textarea.disabled = isPending;
-  button.disabled = isPending;
-  clearButton.disabled = isPending;
-  button.textContent = isPending ? 'Thinking...' : 'Send';
+  textarea.disabled = state.isPending;
+  button.disabled = state.isPending;
+  clearButton.disabled = state.isPending;
+  refreshButton.disabled = state.isRefreshing;
+  button.textContent = state.isPending ? 'Thinking...' : 'Send';
+  refreshButton.textContent = state.isRefreshing ? 'Refreshing...' : 'Refresh Connection';
 }`;
 
 export function getChatViewScript(): string {

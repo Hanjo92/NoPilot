@@ -29,8 +29,7 @@ test('extension configuration listener refreshes provider state for external mod
   assert.match(source, /const providerManager = new ProviderManager\(authService, context\.globalState\);/);
   assert.match(source, /vscode\.window\.registerTreeDataProvider\(\s*'nopilot\.menu',\s*new NoPilotMenuProvider\(\)\s*\)/);
   assert.match(source, /const chatViewProvider = new NoPilotChatViewProvider\(providerManager\);/);
-  assert.match(source, /vscode\.window\.registerWebviewViewProvider\(\s*NoPilotChatViewProvider\.viewType,\s*chatViewProvider,/);
-  assert.match(source, /retainContextWhenHidden: true/);
+  assert.doesNotMatch(source, /registerWebviewViewProvider/);
   assert.match(source, /vscode\.commands\.registerCommand\('nopilot\.openChatPanel', async \(\) => \{/);
   assert.match(source, /await chatViewProvider\.show\(\);/);
   assert.match(source, /void \(async \(\) => \{/);
@@ -63,13 +62,13 @@ test('extension configuration listener refreshes provider state for external mod
   assert.match(source, /logError\('Configuration change sync failed', error\);/);
 });
 
-test('extension registers NoPilot views before async provider initialization can stall', () => {
+test('extension registers NoPilot menu and standalone chat command before async provider initialization can stall', () => {
   const source = readExtensionSource();
 
   assertAppearsInOrder(source, [
     'const providerManager = new ProviderManager(authService, context.globalState);',
     "vscode.window.registerTreeDataProvider(\n      'nopilot.menu',",
-    'vscode.window.registerWebviewViewProvider(\n      NoPilotChatViewProvider.viewType,',
+    "vscode.commands.registerCommand('nopilot.openChatPanel', async () => {",
     'await providerManager.initialize();',
   ]);
 });
