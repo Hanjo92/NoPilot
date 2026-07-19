@@ -32,6 +32,12 @@ body {
   gap: 12px;
 }
 
+.chat-header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .eyebrow {
   margin: 0 0 4px;
   font-size: 11px;
@@ -47,6 +53,34 @@ body {
   line-height: 1.2;
 }
 
+.chat-header-lead {
+  margin: 0;
+  max-width: 60ch;
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground);
+}
+
+.mode-switch {
+  display: inline-flex;
+  width: fit-content;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 70%, transparent);
+  background: color-mix(in srgb, var(--vscode-sideBar-background) 72%, transparent);
+}
+
+.mode-chip {
+  padding: 6px 12px;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+}
+
+.mode-chip.active {
+  color: var(--vscode-button-foreground);
+  background: linear-gradient(135deg, var(--vscode-button-background), color-mix(in srgb, var(--vscode-button-background) 72%, white));
+}
+
 .chat-header-actions {
   display: flex;
   flex-wrap: wrap;
@@ -56,7 +90,7 @@ body {
 
 .status-panel {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -106,6 +140,12 @@ body {
   padding: 18px;
   text-align: center;
   color: var(--vscode-descriptionForeground);
+}
+
+.empty-state strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--vscode-foreground);
 }
 
 .chat-transcript {
@@ -249,6 +289,7 @@ button.secondary:hover {
   }
 
   .chat-header,
+  .chat-header-copy,
   .chat-header-actions,
   .composer-actions,
   .message-meta {

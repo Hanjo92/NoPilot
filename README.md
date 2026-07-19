@@ -10,7 +10,7 @@ NoPilot gives VS Code a lightweight AI coding workflow without locking you to on
 ## Highlights
 
 - **Activity Bar control center**: Open NoPilot from the VS Code Activity Bar and jump to the chat panel, settings, provider/model selection, API keys, inline suggestion toggles, or commit message generation.
-- **Persistent chat panel**: Keep a running conversation in the sidebar and ground responses in the current file, cursor neighborhood, or active selection.
+- **Ask and Agent chat modes**: Switch between focused Q&A and a planning-first coding agent that drafts code from the current file, selection, and visible workspace context.
 - **Provider-first model picker**: Choose the provider first, then pick from that provider's models instead of scanning one long mixed model list.
 - **Settings dashboard**: Activate providers, set API keys, refresh live model lists, configure endpoints, and review request usage in one webview.
 - **Usage visibility**: See current provider requests, total requests, top provider, and provider share in the status bar and settings dashboard.
@@ -96,7 +96,7 @@ Remote Ollama mode can automatically use leaner automatic inline requests when l
 
 ## Chat Panel
 
-Open **NoPilot: Open Chat Panel** to start a running conversation in the Activity Bar. The panel automatically includes the active file name, language, nearby editor context, and the current selection when one exists. Assistant replies can be inserted at the cursor or replace the current selection directly from the panel.
+Open **NoPilot: Open Chat Panel** to start a running conversation in the Activity Bar. Use **Ask** mode for focused explanations and reviews, or switch to **Agent** mode for planning-oriented coding help that also summarizes visible workspace files. The panel automatically includes the active file name, language, nearby editor context, and the current selection when one exists. Assistant replies can be inserted at the cursor or replace the current selection directly from the panel.
 
 ## Important Settings
 

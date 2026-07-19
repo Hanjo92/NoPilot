@@ -23,6 +23,24 @@ document.getElementById('refreshConnectionButton').addEventListener('click', () 
   vscode.postMessage({ command: 'refreshConnection' });
 });
 
+document.querySelector('.mode-switch').addEventListener('click', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  const mode = target.dataset.mode;
+  if (mode !== 'ask' && mode !== 'agent') {
+    return;
+  }
+
+  if (currentState?.isPending) {
+    return;
+  }
+
+  vscode.postMessage({ command: 'setChatMode', mode });
+});
+
 document.getElementById('chatTranscript').addEventListener('click', event => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
@@ -75,6 +93,7 @@ function escapeHtml(value) {
 
 function render(state) {
   renderHeader(state);
+  renderMode(state);
   renderError(state.errorMessage);
   renderTranscript(state);
   renderComposer(state);
@@ -85,6 +104,30 @@ function renderHeader(state) {
   document.getElementById('providerDescription').textContent = state.providerDescription;
   document.getElementById('contextLabel').textContent = state.contextLabel;
   document.getElementById('contextDescription').textContent = state.contextDescription;
+  document.getElementById('panelTitle').textContent = state.panelTitle;
+  document.getElementById('modeLead').textContent = state.modeLead;
+}
+
+function renderMode(state) {
+  const askButton = document.getElementById('askModeButton');
+  const agentButton = document.getElementById('agentModeButton');
+  const buttons = [askButton, agentButton];
+
+  document.getElementById('modeLabel').textContent = state.modeLabel;
+  document.getElementById('modeDescription').textContent = state.modeDescription;
+  document.getElementById('emptyStateTitle').textContent = state.emptyStateTitle;
+  document.getElementById('emptyStateDescription').textContent = state.emptyStateDescription;
+
+  for (const button of buttons) {
+    if (!(button instanceof HTMLButtonElement)) {
+      continue;
+    }
+
+    const isActive = button.dataset.mode === state.chatMode;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    button.disabled = state.isPending;
+  }
 }
 
 function renderError(errorMessage) {
@@ -130,21 +173,28 @@ function renderComposer(state) {
   const button = document.getElementById('sendButton');
   const clearButton = document.getElementById('clearChatButton');
   const refreshButton = document.getElementById('refreshConnectionButton');
+  const composerLabel = document.getElementById('composerLabel');
+  const composerHint = document.getElementById('composerHint');
 
   if (
     !(textarea instanceof HTMLTextAreaElement)
     || !(button instanceof HTMLButtonElement)
     || !(clearButton instanceof HTMLButtonElement)
     || !(refreshButton instanceof HTMLButtonElement)
+    || !(composerLabel instanceof HTMLElement)
+    || !(composerHint instanceof HTMLElement)
   ) {
     return;
   }
 
   textarea.disabled = state.isPending;
+  textarea.placeholder = state.composerPlaceholder;
   button.disabled = state.isPending;
   clearButton.disabled = state.isPending;
   refreshButton.disabled = state.isRefreshing;
-  button.textContent = state.isPending ? 'Thinking...' : 'Send';
+  composerLabel.textContent = state.composerLabel;
+  composerHint.textContent = state.composerHint;
+  button.textContent = state.isPending ? state.pendingButtonLabel : state.sendButtonLabel;
   refreshButton.textContent = state.isRefreshing ? 'Refreshing...' : 'Refresh Connection';
 }`;
 
