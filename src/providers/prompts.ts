@@ -5,6 +5,7 @@ const PROMPT_CONTROL_TAGS = [
   'CURRENT_BLOCK',
   'CHAT_HISTORY',
   'SELECTED_CODE',
+  'WORKSPACE_CONTEXT',
   'EDITOR_CONTEXT',
   'CONTEXT_BEFORE',
   'CONTEXT_AFTER',
@@ -39,6 +40,14 @@ function buildChatHistoryBlock(request: CompletionRequest): string {
   return `\n<CHAT_HISTORY>\n${transcript}\n</CHAT_HISTORY>\n`;
 }
 
+function buildWorkspaceContextBlock(request: CompletionRequest): string {
+  if (!request.workspaceContext?.trim()) {
+    return '';
+  }
+
+  return `\n<WORKSPACE_CONTEXT>\n${escapePromptControlTags(request.workspaceContext)}\n</WORKSPACE_CONTEXT>\n`;
+}
+
 /**
  * Builds the prompt for inline code completion.
  * Uses a strict Fill-in-the-Middle (FIM) approach.
@@ -53,6 +62,7 @@ export function buildCompletionPrompt(request: CompletionRequest): string {
   const chatHistoryBlock = buildChatHistoryBlock(request);
 
   if (request.chatPrompt?.trim()) {
+    const chatMode = request.chatMode === 'ask' ? 'ask' : 'agent';
     const selectionBlock = request.selection?.trim()
       ? `\n<SELECTED_CODE>\n${escapePromptControlTags(request.selection)}\n</SELECTED_CODE>\n`
       : '';
@@ -60,11 +70,30 @@ export function buildCompletionPrompt(request: CompletionRequest): string {
       request.prefix || request.suffix
         ? `\n<EDITOR_CONTEXT>\n<CONTEXT_BEFORE>${escapePromptControlTags(request.prefix)}</CONTEXT_BEFORE>\n<CONTEXT_AFTER>${escapePromptControlTags(request.suffix)}</CONTEXT_AFTER>\n</EDITOR_CONTEXT>\n`
         : '';
+    const workspaceContextBlock = buildWorkspaceContextBlock(request);
+
+    if (chatMode === 'agent') {
+      return `You are NoPilot Agent Mode, a coding agent responding inside a VS Code chat panel.
+Use the current file, selection, recent transcript, and workspace context to produce actionable coding help.
+
+File: ${request.filename} (${request.language})${selectionBlock}${surroundingContextBlock}${workspaceContextBlock}${chatHistoryBlock}
+<LATEST_USER_REQUEST>
+${escapePromptControlTags(request.chatPrompt)}
+</LATEST_USER_REQUEST>
+
+RULES:
+1. Start with a short diagnosis or plan tailored to the latest request.
+2. Be concrete about the files, functions, or edits you recommend.
+3. If you propose code changes, include complete markdown code fences for the changed snippet.
+4. When the context is incomplete, say exactly what additional file or runtime detail is missing.
+5. Do not claim that you already changed files, ran commands, or verified behavior.
+6. Prefer actionable next steps over broad explanations.`;
+    }
 
     return `You are NoPilot, a coding assistant responding inside a VS Code chat panel.
 Use the editor context when it is relevant, but answer the user's latest request directly.
 
-File: ${request.filename} (${request.language})${selectionBlock}${surroundingContextBlock}${chatHistoryBlock}
+File: ${request.filename} (${request.language})${selectionBlock}${surroundingContextBlock}${workspaceContextBlock}${chatHistoryBlock}
 <LATEST_USER_REQUEST>
 ${escapePromptControlTags(request.chatPrompt)}
 </LATEST_USER_REQUEST>

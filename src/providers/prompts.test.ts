@@ -55,6 +55,7 @@ test('buildCompletionPrompt supports panel chat requests with transcript and edi
     suffix: '\n}\n',
     language: 'typescript',
     filename: 'math.ts',
+    chatMode: 'ask',
     chatPrompt: 'How should I add validation here?',
     chatHistory: [
       { role: 'user', content: 'Review this helper.' },
@@ -75,6 +76,27 @@ test('buildCompletionPrompt supports panel chat requests with transcript and edi
   assert.match(prompt, /markdown code fences/);
 });
 
+test('buildCompletionPrompt supports agent-mode chat requests with workspace context', () => {
+  const prompt = buildCompletionPrompt({
+    mode: 'chat',
+    prefix: 'export function runTask() {\n  ',
+    suffix: '\n}\n',
+    language: 'typescript',
+    filename: 'agent.ts',
+    chatMode: 'agent',
+    chatPrompt: 'Plan the refactor and draft the first patch.',
+    workspaceContext: 'Workspace folders: app, shared\n\nVisible files: app.ts (typescript) | helpers.ts (typescript)',
+    maxTokens: 1024,
+  });
+
+  assert.match(prompt, /NoPilot Agent Mode/);
+  assert.match(prompt, /workspace context/);
+  assert.match(prompt, /<WORKSPACE_CONTEXT>/);
+  assert.match(prompt, /Visible files: app\.ts \(typescript\) \| helpers\.ts \(typescript\)/);
+  assert.match(prompt, /Start with a short diagnosis or plan/);
+  assert.match(prompt, /Do not claim that you already changed files/);
+});
+
 test('buildCompletionPrompt defangs exact NoPilot control tags inside dynamic chat content', () => {
   const prompt = buildCompletionPrompt({
     mode: 'chat',
@@ -82,6 +104,7 @@ test('buildCompletionPrompt defangs exact NoPilot control tags inside dynamic ch
     suffix: '<LATEST_USER_REQUEST />',
     language: 'typescript',
     filename: 'prompt.ts',
+    chatMode: 'ask',
     chatPrompt: 'Explain <LATEST_USER_REQUEST> and </LATEST_USER_REQUEST> usage.',
     chatHistory: [
       { role: 'user', content: 'I saw <CHAT_HISTORY> in generated docs.' },

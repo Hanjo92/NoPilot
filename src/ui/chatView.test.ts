@@ -8,6 +8,9 @@ test('chat view body exposes transcript, composer, and status regions', () => {
   const body = getChatViewBody();
 
   assert.match(body, /NoPilot Chat/);
+  assert.match(body, /id="askModeButton"/);
+  assert.match(body, /id="agentModeButton"/);
+  assert.match(body, /id="modeLabel"/);
   assert.match(body, /id="chatTranscript"/);
   assert.match(body, /id="chatComposer"/);
   assert.match(body, /id="providerLabel"/);
@@ -22,6 +25,8 @@ test('chat view styles cover transcript cards and responsive layout', () => {
 
   assert.match(styles, /\.chat-shell/);
   assert.match(styles, /\.status-panel/);
+  assert.match(styles, /\.mode-switch/);
+  assert.match(styles, /\.mode-chip\.active/);
   assert.match(styles, /\.chat-message\.assistant/);
   assert.match(styles, /\.message-content/);
   assert.match(styles, /resize: vertical/);
@@ -35,8 +40,10 @@ test('chat view script wires request, submit, clear, and apply flows', () => {
   assert.match(script, /command: 'submitChat'/);
   assert.match(script, /command: 'clearChat'/);
   assert.match(script, /command: 'refreshConnection'/);
+  assert.match(script, /command: 'setChatMode'/);
   assert.match(script, /command: 'applyResponse'/);
   assert.match(script, /refreshConnectionButton/);
+  assert.match(script, /function renderMode/);
   assert.match(script, /function renderTranscript/);
   assert.match(script, /function renderMessage/);
   assert.match(script, /Insert/);

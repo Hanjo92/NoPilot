@@ -21,8 +21,12 @@ export interface CompletionRequest {
   instruction?: string;
   /** If provided, this is a chat-panel request rather than an inline edit */
   chatPrompt?: string;
+  /** Chat-panel mode for response style and context strategy */
+  chatMode?: ChatPanelMode;
   /** Prior chat turns for panel-style conversational requests */
   chatHistory?: ChatConversationMessage[];
+  /** Extra workspace context for agent-style chat requests */
+  workspaceContext?: string;
   /** The code block the user selected to be replaced */
   selection?: string;
   /** Stop tokens for limiting generation */
@@ -42,6 +46,8 @@ export interface ChatConversationMessage {
   role: 'user' | 'assistant';
   content: string;
 }
+
+export type ChatPanelMode = 'ask' | 'agent';
 
 // ─── Commit Message ───
 

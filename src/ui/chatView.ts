@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ProviderManager } from '../providers/providerManager';
-import type { CompletionRequest } from '../types';
+import type { ChatPanelMode, CompletionRequest } from '../types';
 import { logError } from '../utils/logger';
 import { getChatViewBody } from './chatViewBody';
 import {
@@ -21,6 +21,11 @@ interface SubmitChatMessage {
   prompt: string;
 }
 
+interface SetChatModeMessage {
+  command: 'setChatMode';
+  mode: ChatPanelMode;
+}
+
 interface ApplyResponseMessage {
   command: 'applyResponse';
   messageId: string;
@@ -30,9 +35,22 @@ interface ApplyResponseMessage {
 type IncomingChatViewMessage =
   | ChatViewMessage
   | SubmitChatMessage
+  | SetChatModeMessage
   | ApplyResponseMessage;
 
 interface ChatViewState {
+  chatMode: ChatPanelMode;
+  panelTitle: string;
+  modeLead: string;
+  modeLabel: string;
+  modeDescription: string;
+  emptyStateTitle: string;
+  emptyStateDescription: string;
+  composerLabel: string;
+  composerPlaceholder: string;
+  composerHint: string;
+  sendButtonLabel: string;
+  pendingButtonLabel: string;
   providerLabel: string;
   providerDescription: string;
   contextLabel: string;
@@ -43,12 +61,25 @@ interface ChatViewState {
   errorMessage?: string;
 }
 
+type ChatModePresentation = Omit<
+  ChatViewState,
+  | 'providerLabel'
+  | 'providerDescription'
+  | 'contextLabel'
+  | 'contextDescription'
+  | 'messages'
+  | 'isPending'
+  | 'isRefreshing'
+  | 'errorMessage'
+>;
+
 export class NoPilotChatViewProvider implements vscode.Disposable {
   static readonly panelType = 'nopilot.chatPanel';
   private panel: vscode.WebviewPanel | undefined;
   private readonly disposables: vscode.Disposable[] = [];
   private readonly panelDisposables: vscode.Disposable[] = [];
   private readonly messages: ChatTranscriptEntry[] = [];
+  private chatMode: ChatPanelMode = 'agent';
   private isPending = false;
   private isRefreshing = false;
   private errorMessage: string | undefined;
@@ -125,6 +156,14 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
       case 'refreshConnection':
         await this.refreshConnection();
         return;
+      case 'setChatMode':
+        if (this.isPending || message.mode === this.chatMode) {
+          return;
+        }
+        this.chatMode = message.mode;
+        this.errorMessage = undefined;
+        this.postState();
+        return;
       case 'applyResponse':
         await this.applyResponse(message);
         return;
@@ -174,7 +213,7 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
     this.messages.push({
       id: `assistant-${requestId}`,
       role: 'assistant',
-      content: 'Working on it...',
+      content: this.chatMode === 'agent' ? 'Planning and drafting...' : 'Working on it...',
       pending: true,
     });
     this.postState();
@@ -281,8 +320,10 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
         language: 'plaintext',
         filename: 'untitled',
         chatPrompt: prompt,
+        chatMode: this.chatMode,
         chatHistory: history,
-        maxTokens: 1200,
+        workspaceContext: buildAgentWorkspaceContext(undefined),
+        maxTokens: this.chatMode === 'agent' ? 1600 : 1200,
       };
     }
 
@@ -295,6 +336,7 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
     const suffixEndLine = Math.min(document.lineCount - 1, contextEnd.line + 40);
     const prefixRange = new vscode.Range(new vscode.Position(prefixStartLine, 0), contextStart);
     const suffixRange = new vscode.Range(contextEnd, document.lineAt(suffixEndLine).range.end);
+    const workspaceContext = buildAgentWorkspaceContext(editor);
 
     return {
       mode: 'chat',
@@ -304,8 +346,11 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
       language: document.languageId,
       filename: document.fileName.split(/[/\\]/).pop() || 'untitled',
       chatPrompt: prompt,
+      chatMode: this.chatMode,
       chatHistory: history,
-      maxTokens: 1200,
+      additionalContext: this.chatMode === 'agent' ? workspaceContext : undefined,
+      workspaceContext,
+      maxTokens: this.chatMode === 'agent' ? 1600 : 1200,
     };
   }
 
@@ -338,9 +383,11 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
   private buildState(): ChatViewState {
     const activeProvider = this.providerManager.getActiveProvider();
     const editor = vscode.window.activeTextEditor;
+    const modePresentation = getChatModePresentation(this.chatMode);
 
     if (!editor) {
       return {
+        ...modePresentation,
         providerLabel: this.providerManager.getActiveDisplayName(),
         providerDescription: activeProvider.info.description,
         contextLabel: 'No active editor',
@@ -359,6 +406,7 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
       : `Selection length: ${document.getText(selection).length} characters.`;
 
     return {
+      ...modePresentation,
       providerLabel: this.providerManager.getActiveDisplayName(),
       providerDescription: activeProvider.info.description,
       contextLabel: `${document.fileName.split(/[/\\]/).pop() || 'untitled'} · ${document.languageId}`,
@@ -398,6 +446,103 @@ ${indentBlock(getChatViewScript())}
     const disposables = this.panelDisposables.splice(0);
     disposables.forEach((disposable) => disposable.dispose());
   }
+}
+
+function getChatModePresentation(mode: ChatPanelMode): ChatModePresentation {
+  if (mode === 'ask') {
+    return {
+      chatMode: mode,
+      panelTitle: 'Ask Mode',
+      modeLead: 'Ask focused questions about the current file, selection, or implementation detail.',
+      modeLabel: 'Ask',
+      modeDescription: 'Answer-first mode for explanations, reviews, and targeted guidance.',
+      emptyStateTitle: 'Ask mode is ready.',
+      emptyStateDescription: 'Use the current editor context to explain code, review a function, or request a focused snippet.',
+      composerLabel: 'Question',
+      composerPlaceholder: 'Ask NoPilot to explain, review, or suggest a focused change using the current editor context.',
+      composerHint: 'Enter to send. Shift+Enter for a new line.',
+      sendButtonLabel: 'Send',
+      pendingButtonLabel: 'Thinking...',
+    };
+  }
+
+  return {
+    chatMode: mode,
+    panelTitle: 'Agent Mode',
+    modeLead: 'Plan changes, inspect context, and draft code with workspace-aware prompts.',
+    modeLabel: 'Agent',
+    modeDescription: 'Planning-first mode for code changes, refactors, and workspace-aware implementation help.',
+    emptyStateTitle: 'Agent mode is ready.',
+    emptyStateDescription: 'Ask NoPilot to inspect the current file, plan a refactor, or draft the next code change.',
+    composerLabel: 'Request',
+    composerPlaceholder: 'Ask NoPilot Agent to inspect the current file, plan edits, or draft code using the active workspace context.',
+    composerHint: 'Enter to run. Shift+Enter for a new line.',
+    sendButtonLabel: 'Run Agent',
+    pendingButtonLabel: 'Planning...',
+  };
+}
+
+function buildAgentWorkspaceContext(editor: vscode.TextEditor | undefined): string | undefined {
+  const sections: string[] = [];
+  const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+  const visibleEditors = vscode.window.visibleTextEditors
+    .filter((candidate) => candidate.document.uri.scheme === 'file');
+
+  if (workspaceFolders.length > 0) {
+    sections.push(
+      `Workspace folders: ${workspaceFolders.slice(0, 3).map((folder) => folder.name).join(', ')}`
+    );
+  }
+
+  if (visibleEditors.length > 0) {
+    const visibleFiles = uniqueVisibleDocuments(visibleEditors)
+      .slice(0, 4)
+      .map((document) => describeDocument(document));
+
+    if (visibleFiles.length > 0) {
+      sections.push(`Visible files: ${visibleFiles.join(' | ')}`);
+    }
+  }
+
+  const previewDocuments = uniqueVisibleDocuments(visibleEditors)
+    .filter((document) => document.uri.toString() !== editor?.document.uri.toString())
+    .slice(0, 2);
+  const previews = previewDocuments
+    .map((document) => buildDocumentPreview(document))
+    .filter((preview): preview is string => Boolean(preview));
+
+  if (previews.length > 0) {
+    sections.push(`Open file previews:\n${previews.join('\n\n')}`);
+  }
+
+  return sections.length > 0 ? sections.join('\n\n') : undefined;
+}
+
+function uniqueVisibleDocuments(editors: readonly vscode.TextEditor[]): vscode.TextDocument[] {
+  const documents = new Map<string, vscode.TextDocument>();
+
+  for (const editor of editors) {
+    documents.set(editor.document.uri.toString(), editor.document);
+  }
+
+  return Array.from(documents.values());
+}
+
+function describeDocument(document: vscode.TextDocument): string {
+  return `${document.fileName.split(/[/\\]/).pop() || 'untitled'} (${document.languageId})`;
+}
+
+function buildDocumentPreview(document: vscode.TextDocument): string | undefined {
+  const lastLine = Math.min(document.lineCount, 12);
+  const preview = Array.from({ length: lastLine }, (_, index) => document.lineAt(index).text)
+    .join('\n')
+    .trim();
+
+  if (!preview) {
+    return undefined;
+  }
+
+  return `File: ${describeDocument(document)}\n${preview.slice(0, 900)}`;
 }
 
 function indentBlock(text: string, indent = 4): string {
