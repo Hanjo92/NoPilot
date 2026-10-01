@@ -34,7 +34,7 @@ test('chat view provider keeps transcript state, editor context, and apply actio
   assert.match(source, /private readonly messages: ChatTranscriptEntry\[\] = \[\];/);
   assert.match(source, /private readonly panelDisposables: vscode\.Disposable\[\] = \[\];/);
   assert.match(source, /private chatMode: ChatPanelMode = 'agent';/);
-  assert.match(source, /this\.providerManager\.onDidChangeProvider\(\(\) => this\.postState\(\)\)/);
+  assert.match(source, /this\.providerManager\.onDidChangeProvider\(\(\) => \{ this\.cancellation\?\.cancel\(\)/);
   assert.match(source, /vscode\.window\.onDidChangeTextEditorSelection\(\(\) => this\.postState\(\)\)/);
   assert.match(source, /panel\.webview\.onDidReceiveMessage\(\(message: IncomingChatViewMessage\) => \{/);
   assert.match(source, /panel\.onDidDispose\(\(\) => \{/);
@@ -48,21 +48,20 @@ test('chat view provider keeps transcript state, editor context, and apply actio
   assert.match(source, /logError\('NoPilot chat panel state update failed', error\);/);
   assert.match(source, /case 'submitChat':/);
   assert.match(source, /case 'applyResponse':/);
+  assert.match(source, /case 'cancelRequest':/);
+  assert.match(source, /await runAgent\(/);
+  assert.match(source, /this\.editReview\.apply\(/);
+  assert.doesNotMatch(source, /visibleTextEditors|buildAgentWorkspaceContext/);
   assert.match(source, /chatPrompt: prompt,/);
   assert.match(source, /chatMode: this\.chatMode,/);
   assert.match(source, /normalizeAssistantResponseContent\(response\.text\) \?\? 'No response returned\.'/);
-  assert.match(source, /const history = buildChatRequestHistory\(this\.messages\);/);
+  assert.match(source, /const history = buildChatRequestHistory\(this\.messages\.filter\(entry => entry\.mode === 'ask'\)\);/);
   assert.match(source, /chatHistory: history,/);
-  assert.match(source, /const workspaceContext = buildAgentWorkspaceContext\(editor\);/);
-  assert.match(source, /workspaceContext,/);
-  assert.match(source, /workspaceContext: buildAgentWorkspaceContext\(undefined\),/);
   assert.match(source, /const cleanedContent = normalizeChatResponseForApply\(chatMessage\.content\);/);
   assert.match(source, /NoPilot Chat could not find any content to apply/);
-  assert.match(source, /Select code before using Replace Selection in NoPilot Chat/);
   assert.match(source, /Selection length: \$\{document\.getText\(selection\)\.length\} characters\./);
   assert.match(source, /Open a file to give the chat panel current-code context\./);
   assert.match(source, /function getChatModePresentation\(mode: ChatPanelMode\): ChatModePresentation/);
-  assert.match(source, /function buildAgentWorkspaceContext\(editor: vscode\.TextEditor \| undefined\)/);
 });
 
 test('chat panel show creates the standalone panel before wiring state updates', () => {

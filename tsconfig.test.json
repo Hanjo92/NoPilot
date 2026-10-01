@@ -66,6 +66,7 @@
     "src/ui/settingsWebview.test.ts",
     "src/ui/settingsWebviewScript.source.test.ts",
     "src/ui/settingsPanelActions.ts",
-    "src/ui/settingsPanelActions.test.ts"
+    "src/ui/settingsPanelActions.test.ts",
+    "src/agent/**/*.ts"
   ]
 }

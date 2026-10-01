@@ -10,7 +10,7 @@ NoPilot gives VS Code a lightweight AI coding workflow without locking you to on
 ## Highlights
 
 - **Activity Bar control center**: Open NoPilot from the VS Code Activity Bar and jump to the chat panel, settings, provider/model selection, API keys, inline suggestion toggles, or commit message generation.
-- **Ask and Agent chat modes**: Switch between focused Q&A and a planning-first coding agent that drafts code from the current file, selection, and visible workspace context.
+- **Ask and Agent chat modes**: Ask about the current editor, or run a bounded agent that reads workspace files, proposes reviewed changes, and requests approval for verification.
 - **Provider-first model picker**: Choose the provider first, then pick from that provider's models instead of scanning one long mixed model list.
 - **Settings dashboard**: Activate providers, set API keys, refresh live model lists, configure endpoints, and review request usage in one webview.
 - **Usage visibility**: See current provider requests, total requests, top provider, and provider share in the status bar and settings dashboard.
@@ -37,7 +37,7 @@ NoPilot gives VS Code a lightweight AI coding workflow without locking you to on
 The NoPilot Activity Bar entry opens a compact sidebar menu:
 
 - **Open Settings**: Open the provider and extension settings dashboard.
-- **Open Chat Panel**: Open the persistent NoPilot chat view inside the Activity Bar.
+- **Open Chat Panel**: Open the NoPilot chat panel beside the editor.
 - **Select Provider / Model**: Pick a provider first, then a model from that provider.
 - **Set API Key**: Save or change credentials through VS Code SecretStorage.
 - **Toggle Inline Suggestions**: Enable or disable automatic ghost text.
@@ -96,7 +96,17 @@ Remote Ollama mode can automatically use leaner automatic inline requests when l
 
 ## Chat Panel
 
-Open **NoPilot: Open Chat Panel** to start a running conversation in the Activity Bar. Use **Ask** mode for focused explanations and reviews, or switch to **Agent** mode for planning-oriented coding help that also summarizes visible workspace files. The panel automatically includes the active file name, language, nearby editor context, and the current selection when one exists. Assistant replies can be inserted at the cursor or replace the current selection directly from the panel.
+Open **NoPilot: Open Chat Panel** from the Activity Bar menu or Command Palette. The chat opens beside the editor.
+
+**Ask** uses only the current file/selection, nearby editor text, and earlier Ask messages. It does not automatically include other open files or Agent tool results. **Review Insert** and **Review Replace Selection** target the URI, document version, and selection/cursor captured when the request was sent. Changing the active editor or selection does not retarget a response. Each edit opens an immutable diff, requires review and an explicit **Apply Changes** confirmation, and refuses documents changed since the request. Inline Chat uses the same review flow. NoPilot applies edits to editor buffers without explicitly saving them; VS Code Auto Save may save them. Undo is available.
+
+**Agent** operates in one trusted local workspace folder (choose one in a multi-root workspace). It can list files, search literal text, read files, and propose exact replacements in up to five existing files. It must read a file before changing it. Each file diff is reviewed before a final approval applies the change set. Paths outside the folder, symlinks, hidden files, credential extensions, and dependency/build directories are rejected. Files are limited to 64 KiB; listing/search results are bounded and report truncation. New files, deletion, renames, remote workspaces, and arbitrary shell tools are outside this initial scope.
+
+Verification can request only the root `package.json` scripts **test**, **lint**, **compile**, or **build**. A separate approval shows the actual script, working directory, buffers to save, and execution side effects. Only unchanged buffers previously approved in this run may be saved automatically; existing user edits must be saved separately. The script runs as `npm --ignore-scripts run <name>`, without npm pre/post hooks. Project scripts still execute with your user permissions and may change files or access the network: this is not a command sandbox. The exit status and up to 16,000 output characters go back to the model. Commands time out after 120 seconds. This initial command runner supports macOS/Linux.
+
+All six providers use the existing completion interface with a validated JSON action protocol; native tool-calling support is not required. Models that cannot follow the protocol stop after bounded failures. A run has at most 12 model requests, plus limits on repeated actions, context size, and response waiting. **Stop**, closing the chat panel, or switching providers cancels the current run. Cancellation does not undo already approved edits, saves, or command effects. Provider-side cancellation is best effort, and a late response cannot trigger another action. Conversation and run state are in memory and do not resume after an extension restart.
+
+For local validation, run `npm test`, `npm run compile`, `npm run lint`, and `npm run build`. `npm run test:extension-host` uses an installed VS Code (default macOS path; override `VSCODE_EXECUTABLE`) with a temporary profile and fixture workspace. Its model responses and approval choices are test doubles; actual VS Code document, diff, and workspace-edit APIs are exercised without provider calls. It does not load the user's installed extensions or settings.
 
 ## Important Settings
 

@@ -50,6 +50,7 @@ export function getChatViewBody(): string {
     ></textarea>
     <div class="composer-actions">
       <p id="composerHint" class="composer-hint">Enter to run. Shift+Enter for a new line.</p>
+      <button id="cancelButton" class="secondary hidden" type="button">Stop</button>
       <button id="sendButton" class="primary" type="submit">Run Agent</button>
     </div>
   </form>

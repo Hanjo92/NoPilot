@@ -22,3 +22,5 @@ esbuild.js
 eslint.config.mjs
 **/*.ts
 **/*.map
+test/**
+scripts/test-extension-host.mjs

@@ -147,3 +147,14 @@ test('buildCommitMessagePrompt expands custom placeholders and skips preset form
   assert.doesNotMatch(prompt, /Write a simple, clear commit message/);
   assert.doesNotMatch(prompt, /Follow the Conventional Commits format/);
 });
+
+test('Ask ignores workspace and internal agent protocol context', () => {
+  const prompt = buildCompletionPrompt({
+    mode: 'chat', chatMode: 'ask', chatPrompt: 'Explain this selection',
+    prefix: 'selected-file-only', suffix: '', filename: 'a.ts', language: 'typescript',
+    workspaceContext: 'PRIVATE_WORKSPACE_DATA', agentProtocolPrompt: 'PRIVATE_TOOL_RESULTS',
+  });
+  assert.match(prompt, /selected-file-only/);
+  assert.doesNotMatch(prompt, /PRIVATE_WORKSPACE_DATA|PRIVATE_TOOL_RESULTS/);
+  assert.match(prompt, /Ask mode has no execution tools/);
+});

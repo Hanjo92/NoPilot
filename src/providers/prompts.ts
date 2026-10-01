@@ -53,6 +53,7 @@ function buildWorkspaceContextBlock(request: CompletionRequest): string {
  * Uses a strict Fill-in-the-Middle (FIM) approach.
  */
 export function buildCompletionPrompt(request: CompletionRequest): string {
+  if (request.chatMode === 'agent' && request.agentProtocolPrompt) { return request.agentProtocolPrompt; }
   const contextBlock = request.additionalContext
     ? `\n<ADDITIONAL_CONTEXT>\n// Snippets from the project to provide context for variables and functions:\n${escapePromptControlTags(request.additionalContext)}\n</ADDITIONAL_CONTEXT>\n`
     : '';
@@ -70,7 +71,7 @@ export function buildCompletionPrompt(request: CompletionRequest): string {
       request.prefix || request.suffix
         ? `\n<EDITOR_CONTEXT>\n<CONTEXT_BEFORE>${escapePromptControlTags(request.prefix)}</CONTEXT_BEFORE>\n<CONTEXT_AFTER>${escapePromptControlTags(request.suffix)}</CONTEXT_AFTER>\n</EDITOR_CONTEXT>\n`
         : '';
-    const workspaceContextBlock = buildWorkspaceContextBlock(request);
+    const workspaceContextBlock = chatMode === 'agent' ? buildWorkspaceContextBlock(request) : '';
 
     if (chatMode === 'agent') {
       return `You are NoPilot Agent Mode, a coding agent responding inside a VS Code chat panel.
@@ -102,7 +103,7 @@ RULES:
 1. Answer the latest user request directly.
 2. If you provide code, wrap it in markdown code fences.
 3. If the provided editor context is insufficient, say what is missing.
-4. Do not claim that you already changed files or ran commands unless the user explicitly asked for a plan only.`;
+4. Do not claim that you already changed files, ran commands, or verified behavior. Ask mode has no execution tools.`;
   }
 
   if (request.instruction) {

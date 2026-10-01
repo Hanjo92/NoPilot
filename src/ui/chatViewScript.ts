@@ -15,6 +15,10 @@ document.getElementById('chatComposer').addEventListener('submit', event => {
   submitPrompt();
 });
 
+document.getElementById('cancelButton').addEventListener('click', () => {
+  vscode.postMessage({ command: 'cancelRequest' });
+});
+
 document.getElementById('clearChatButton').addEventListener('click', () => {
   vscode.postMessage({ command: 'clearChat' });
 });
@@ -151,10 +155,10 @@ function renderTranscript(state) {
 }
 
 function renderMessage(message) {
-  const actionButtons = message.role === 'assistant' && !message.pending
+  const actionButtons = message.role === 'assistant' && !message.pending && message.canApply && !currentState?.isPending
     ? '<div class="message-actions">'
-      + '<button class="secondary" type="button" data-action="insert" data-message-id="' + message.id + '">Insert</button>'
-      + '<button class="secondary" type="button" data-action="replace" data-message-id="' + message.id + '">Replace Selection</button>'
+      + '<button class="secondary" type="button" data-action="insert" data-message-id="' + message.id + '">Review Insert</button>'
+      + '<button class="secondary" type="button" data-action="replace" data-message-id="' + message.id + '">Review Replace Selection</button>'
       + '</div>'
     : '';
   const label = message.pending ? 'Assistant · Thinking' : message.role === 'user' ? 'User' : 'Assistant';
@@ -191,7 +195,8 @@ function renderComposer(state) {
   textarea.placeholder = state.composerPlaceholder;
   button.disabled = state.isPending;
   clearButton.disabled = state.isPending;
-  refreshButton.disabled = state.isRefreshing;
+  refreshButton.disabled = state.isRefreshing || state.isPending;
+  document.getElementById('cancelButton').classList.toggle('hidden', !state.isPending);
   composerLabel.textContent = state.composerLabel;
   composerHint.textContent = state.composerHint;
   button.textContent = state.isPending ? state.pendingButtonLabel : state.sendButtonLabel;
