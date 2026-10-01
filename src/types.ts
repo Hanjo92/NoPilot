@@ -23,6 +23,8 @@ export interface CompletionRequest {
   chatPrompt?: string;
   /** Chat-panel mode for response style and context strategy */
   chatMode?: ChatPanelMode;
+  /** Internal bounded agent protocol prompt, never accepted from the webview. */
+  agentProtocolPrompt?: string;
   /** Prior chat turns for panel-style conversational requests */
   chatHistory?: ChatConversationMessage[];
   /** Extra workspace context for agent-style chat requests */

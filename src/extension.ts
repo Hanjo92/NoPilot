@@ -10,6 +10,7 @@ import { handleInlineChat } from './features/inlineChat';
 import { promptAndSaveProviderApiKey } from './providers/providerCredentials';
 import { getProviderModelConfigKey, getProviderModelSettingScope } from './providers/providerConfig';
 import { NoPilotChatViewProvider } from './ui/chatView';
+import { EditReview } from './agent/editReview';
 import type { ProviderId } from './types';
 import { log, logError, getOutputChannel } from './utils/logger';
 import { getNoPilotStatusBarPresentation } from './ui/statusBarPresentation';
@@ -48,7 +49,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     )
   );
 
-  const chatViewProvider = new NoPilotChatViewProvider(providerManager);
+  const editReview = new EditReview();
+  context.subscriptions.push(editReview);
+  const chatViewProvider = new NoPilotChatViewProvider(providerManager, editReview);
   context.subscriptions.push(chatViewProvider);
 
   // ── Status Bar ──
@@ -104,7 +107,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   context.subscriptions.push(
     vscode.commands.registerCommand('nopilot.inlineChat', () => {
-      handleInlineChat(providerManager);
+      void handleInlineChat(providerManager, editReview);
     })
   );
 

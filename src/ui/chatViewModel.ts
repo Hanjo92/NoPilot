@@ -5,6 +5,8 @@ export interface ChatTranscriptEntry {
   role: 'user' | 'assistant';
   content: string;
   pending?: boolean;
+  mode?: 'ask' | 'agent';
+  canApply?: boolean;
 }
 
 const FIRST_MARKDOWN_CODE_BLOCK_PATTERN = /```[^\n]*\n([\s\S]*?)\n?```/;

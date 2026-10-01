@@ -3,8 +3,11 @@ import { ProviderManager } from '../providers/providerManager';
 import { CompletionRequest } from '../types';
 import { log, logError } from '../utils/logger';
 import { stripMarkdownCodeFences } from './inlineText';
+import { EditReview } from '../agent/editReview';
+import { responseEdit } from '../agent/editSafety';
+import { cancellable } from '../agent/cancellation';
 
-export async function handleInlineChat(providerManager: ProviderManager) {
+export async function handleInlineChat(providerManager: ProviderManager, review: EditReview) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('No active text editor for NoPilot Inline Chat');
@@ -29,6 +32,11 @@ export async function handleInlineChat(providerManager: ProviderManager) {
     targetRange = document.lineAt(selection.start.line).range;
   }
 
+  const target = {
+    uri: document.uri.toString(), version: document.version, text: document.getText(),
+    start: document.offsetAt(targetRange.start), end: document.offsetAt(targetRange.end),
+    cursor: document.offsetAt(selection.active),
+  };
   const selectionText = document.getText(targetRange);
 
   // Extract limits to prevent huge payloads
@@ -59,7 +67,7 @@ export async function handleInlineChat(providerManager: ProviderManager) {
     },
     async (progress, token) => {
       try {
-        const response = await providerManager.complete(request, token);
+        const response = await cancellable(providerManager.complete(request, token), token);
 
         if (token.isCancellationRequested || !response.text) {
           return;
@@ -67,16 +75,16 @@ export async function handleInlineChat(providerManager: ProviderManager) {
 
         const cleaned = stripMarkdownCodeFences(response.text);
 
-        const success = await editor.edit((editBuilder) => {
-          editBuilder.replace(targetRange, cleaned);
-        });
+        const success = await review.apply([responseEdit(target, cleaned, target.start === target.end ? 'insert' : 'replace')], token,
+          'Review the replacement for the original inline-chat selection.');
 
         if (success) {
             log(`Inline Chat replaced code successfully.`);
         }
       } catch (error) {
+         if (token.isCancellationRequested) { return; }
          logError('Inline Chat Failed', error);
-         vscode.window.showErrorMessage('NoPilot Inline Chat failed to generate code.');
+         vscode.window.showErrorMessage(`NoPilot Inline Chat: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   );

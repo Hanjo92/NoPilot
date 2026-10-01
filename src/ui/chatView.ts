@@ -11,9 +11,14 @@ import {
 } from './chatViewModel';
 import { getChatViewScript } from './chatViewScript';
 import { getChatViewStyles } from './chatViewStyles';
+import { EditReview } from '../agent/editReview';
+import { EditTarget, responseEdit } from '../agent/editSafety';
+import { CancelledError, cancellable, checkCancellation } from '../agent/cancellation';
+import { runAgent } from '../agent/runner';
+import { createWorkspaceTools, selectAgentScope } from '../agent/vscodeAgentHost';
 
 interface ChatViewMessage {
-  command: 'requestState' | 'clearChat' | 'refreshConnection';
+  command: 'requestState' | 'clearChat' | 'refreshConnection' | 'cancelRequest';
 }
 
 interface SubmitChatMessage {
@@ -84,12 +89,15 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
   private isRefreshing = false;
   private errorMessage: string | undefined;
   private requestSequence = 0;
+  private readonly targets = new Map<string, EditTarget>();
+  private cancellation: vscode.CancellationTokenSource | undefined;
 
   constructor(
-    private readonly providerManager: ProviderManager
+    private readonly providerManager: ProviderManager,
+    private readonly editReview: EditReview
   ) {
     this.disposables.push(
-      this.providerManager.onDidChangeProvider(() => this.postState()),
+      this.providerManager.onDidChangeProvider(() => { this.cancellation?.cancel(); this.postState(); }),
       this.providerManager.onDidChangeProviderState(() => this.postState()),
       vscode.window.onDidChangeActiveTextEditor(() => this.postState()),
       vscode.window.onDidChangeTextEditorSelection(() => this.postState())
@@ -119,9 +127,13 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
 
     this.panelDisposables.push(
       panel.webview.onDidReceiveMessage((message: IncomingChatViewMessage) => {
-        void this.handleMessage(message);
+        void this.handleMessage(message).catch(error => {
+          this.errorMessage = error instanceof Error ? error.message : String(error);
+          this.postState();
+        });
       }),
       panel.onDidDispose(() => {
+        this.cancellation?.cancel();
         if (this.panel === panel) {
           this.panel = undefined;
         }
@@ -133,6 +145,9 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
   }
 
   dispose(): void {
+    this.cancellation?.cancel();
+    this.cancellation?.dispose();
+    this.targets.clear();
     const panel = this.panel;
     this.panel = undefined;
     this.disposePanelDisposables();
@@ -141,7 +156,11 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
   }
 
   private async handleMessage(message: IncomingChatViewMessage): Promise<void> {
+    if (!message || typeof message !== 'object') { return; }
     switch (message.command) {
+      case 'cancelRequest':
+        this.cancellation?.cancel();
+        return;
       case 'requestState':
         this.postState();
         return;
@@ -150,6 +169,7 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
           return;
         }
         this.messages.length = 0;
+        this.targets.clear();
         this.errorMessage = undefined;
         this.postState();
         return;
@@ -157,7 +177,7 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
         await this.refreshConnection();
         return;
       case 'setChatMode':
-        if (this.isPending || message.mode === this.chatMode) {
+        if (this.isPending || (message.mode !== 'ask' && message.mode !== 'agent') || message.mode === this.chatMode) {
           return;
         }
         this.chatMode = message.mode;
@@ -176,7 +196,7 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
   }
 
   private async refreshConnection(): Promise<void> {
-    if (this.isRefreshing) {
+    if (this.isRefreshing || this.isPending) {
       return;
     }
 
@@ -197,96 +217,130 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
   }
 
   private async submitChat(prompt: string): Promise<void> {
+    if (typeof prompt !== 'string' || prompt.length > 16000) { return; }
     const trimmedPrompt = prompt.trim();
-    if (!trimmedPrompt || this.isPending) {
-      return;
-    }
-
+    if (!trimmedPrompt || this.isPending) { return; }
     const requestId = ++this.requestSequence;
+    const messageId = `assistant-${requestId}`;
+    const mode = this.chatMode;
+    const editor = vscode.window.activeTextEditor;
+    // Capture the target before the first await. Applying never consults activeTextEditor.
+    if (mode === 'ask' && editor && editor.document.getText().length <= 1_000_000) {
+      const document = editor.document;
+      this.targets.set(messageId, {
+        uri: document.uri.toString(), version: document.version, text: document.getText(),
+        start: document.offsetAt(editor.selection.start), end: document.offsetAt(editor.selection.end),
+        cursor: document.offsetAt(editor.selection.active),
+      });
+      while (this.targets.size > 20) { this.targets.delete(this.targets.keys().next().value!); }
+    }
     this.errorMessage = undefined;
     this.isPending = true;
-    this.messages.push({
-      id: `user-${requestId}`,
-      role: 'user',
-      content: trimmedPrompt,
-    });
-    this.messages.push({
-      id: `assistant-${requestId}`,
-      role: 'assistant',
-      content: this.chatMode === 'agent' ? 'Planning and drafting...' : 'Working on it...',
-      pending: true,
-    });
+    const cancellation = new vscode.CancellationTokenSource();
+    this.cancellation = cancellation;
+    const token = cancellation.token;
+    const providerId = this.providerManager.getActiveProviderId();
+    const model = this.providerManager.getActiveProvider().info.currentModel;
+    const assertProvider = () => {
+      checkCancellation(token);
+      if (providerId !== this.providerManager.getActiveProviderId()
+        || model !== this.providerManager.getActiveProvider().info.currentModel) {
+        throw new Error('Provider or model changed. Start a new request.');
+      }
+    };
+    this.messages.push({ id: `user-${requestId}`, role: 'user', content: trimmedPrompt, mode });
+    this.messages.push({ id: messageId, role: 'assistant', content: 'Working on it...', pending: true, mode });
     this.postState();
-
+    const log: string[] = [];
     try {
-      const response = await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Window,
-          title: 'NoPilot Chat',
-        },
-        async (_, token) => {
-          const request = this.buildChatRequest(trimmedPrompt);
-          return this.providerManager.complete(request, token);
+      let content: string;
+      if (mode === 'agent') {
+        const scope = await selectAgentScope(token);
+        const tools = createWorkspaceTools(scope, this.editReview, token);
+        let task = trimmedPrompt;
+        if (editor?.document.uri.scheme === 'file') {
+          try {
+            const relative = scope.relative(editor.document.uri.fsPath);
+            await scope.resolve(relative);
+            task += `\nActive file at request time: ${relative}`;
+          } catch { /* An outside/unsupported editor is not included in Agent context. */ }
         }
-      );
-
-      this.replacePendingAssistantMessage(
-        requestId,
-        normalizeAssistantResponseContent(response.text) ?? 'No response returned.'
-      );
+        content = await runAgent(task, scope.root.split('/').pop() ?? 'workspace', {
+          complete: async agentProtocolPrompt => {
+            assertProvider();
+            const response = await this.providerManager.complete({
+              mode: 'chat', chatMode: 'agent', chatPrompt: trimmedPrompt, agentProtocolPrompt,
+              prefix: '', suffix: '', language: 'plaintext', filename: 'workspace', maxTokens: 4096,
+            }, token);
+            assertProvider();
+            return response.text;
+          },
+          execute: action => { assertProvider(); return tools.execute(action); },
+          progress: message => {
+            log.push(message);
+            const entry = this.messages.find(entry => entry.id === messageId);
+            if (entry) { entry.content = log.join('\n').slice(-12000); }
+            this.postState();
+          },
+        }, token);
+      } else {
+        const request = this.buildChatRequest(trimmedPrompt, editor);
+        assertProvider();
+        const response = await cancellable(this.providerManager.complete(request, token), token);
+        assertProvider();
+        content = normalizeAssistantResponseContent(response.text) ?? 'No response returned.';
+      }
+      checkCancellation(token);
+      this.replacePendingAssistantMessage(requestId, log.length ? `${log.join('\n').slice(-12000)}\n\n${content}` : content);
+      const entry = this.messages.find(entry => entry.id === messageId)!;
+      entry.canApply = mode === 'ask' && this.targets.has(messageId);
     } catch (error) {
-      this.replacePendingAssistantMessage(
-        requestId,
-        'The request failed before a response was returned.'
-      );
-      this.errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logError('NoPilot chat panel request failed', error);
+      const cancelled = error instanceof CancelledError || token.isCancellationRequested;
+      this.replacePendingAssistantMessage(requestId,
+        `${log.join('\n').slice(-12000)}${log.length ? '\n\n' : ''}${cancelled ? 'Cancelled. Previously approved changes remain; no further actions will run.' : 'Request stopped. Previously approved changes remain.'}`);
+      this.targets.delete(messageId);
+      if (!cancelled) {
+        this.errorMessage = error instanceof Error ? error.message : String(error);
+        logError('NoPilot chat panel request failed', error);
+      }
     } finally {
+      if (this.cancellation === cancellation) { this.cancellation = undefined; }
+      cancellation.cancel();
+      cancellation.dispose();
       this.isPending = false;
       this.postState();
     }
   }
 
   private async applyResponse(message: ApplyResponseMessage): Promise<void> {
-    const chatMessage = this.messages.find((entry) => entry.id === message.messageId);
-    if (!chatMessage || chatMessage.role !== 'assistant' || chatMessage.pending) {
-      return;
+    if (this.isPending || (message.mode !== 'insert' && message.mode !== 'replace')) { return; }
+    const chatMessage = this.messages.find(entry => entry.id === message.messageId);
+    const target = this.targets.get(message.messageId);
+    if (!chatMessage?.canApply || chatMessage.pending || !target) {
+      throw new Error('No original edit target is available. Send a fresh Ask request.');
     }
-
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      void vscode.window.showErrorMessage('No active text editor for NoPilot Chat');
-      return;
-    }
-
-    const selection = editor.selection;
-    if (message.mode === 'replace' && selection.isEmpty) {
-      void vscode.window.showErrorMessage('Select code before using Replace Selection in NoPilot Chat');
-      return;
-    }
-
     const cleanedContent = normalizeChatResponseForApply(chatMessage.content);
-    if (!cleanedContent) {
-      void vscode.window.showErrorMessage('NoPilot Chat could not find any content to apply');
-      return;
-    }
-
-    const targetRange = message.mode === 'replace' && !selection.isEmpty
-      ? selection
-      : new vscode.Range(selection.active, selection.active);
-
-    const didEdit = await editor.edit((editBuilder) => {
-      if (message.mode === 'replace' && !selection.isEmpty) {
-        editBuilder.replace(targetRange, cleanedContent);
-        return;
+    if (!cleanedContent) { throw new Error('NoPilot Chat could not find any content to apply'); }
+    const proposal = responseEdit(target, cleanedContent, message.mode);
+    const cancellation = new vscode.CancellationTokenSource();
+    this.cancellation = cancellation;
+    this.isPending = true;
+    this.errorMessage = undefined;
+    this.postState();
+    try {
+      const applied = await this.editReview.apply([proposal], cancellation.token,
+        `Apply this response to the original ${message.mode === 'replace' ? 'selection' : 'cursor'} captured when you sent the request. Current editor and selection are ignored.`);
+      if (applied) { chatMessage.canApply = false; this.targets.delete(message.messageId); }
+    } catch (error) {
+      if (!cancellation.token.isCancellationRequested) {
+        this.errorMessage = error instanceof Error ? error.message : String(error);
       }
-
-      editBuilder.insert(selection.active, cleanedContent);
-    });
-
-    if (!didEdit) {
-      void vscode.window.showErrorMessage('NoPilot Chat could not apply the response to the editor');
+    } finally {
+      this.cancellation = undefined;
+      cancellation.cancel();
+      cancellation.dispose();
+      this.isPending = false;
+      this.postState();
     }
   }
 
@@ -302,15 +356,16 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
     }
 
     this.messages[pendingIndex] = {
+      ...this.messages[pendingIndex],
+      pending: false,
       id: `assistant-${requestId}`,
       role: 'assistant',
       content,
     };
   }
 
-  private buildChatRequest(prompt: string): CompletionRequest {
-    const editor = vscode.window.activeTextEditor;
-    const history = buildChatRequestHistory(this.messages);
+  private buildChatRequest(prompt: string, editor: vscode.TextEditor | undefined): CompletionRequest {
+    const history = buildChatRequestHistory(this.messages.filter(entry => entry.mode === 'ask'));
 
     if (!editor) {
       return {
@@ -322,8 +377,7 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
         chatPrompt: prompt,
         chatMode: this.chatMode,
         chatHistory: history,
-        workspaceContext: buildAgentWorkspaceContext(undefined),
-        maxTokens: this.chatMode === 'agent' ? 1600 : 1200,
+        maxTokens: 1200,
       };
     }
 
@@ -336,7 +390,6 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
     const suffixEndLine = Math.min(document.lineCount - 1, contextEnd.line + 40);
     const prefixRange = new vscode.Range(new vscode.Position(prefixStartLine, 0), contextStart);
     const suffixRange = new vscode.Range(contextEnd, document.lineAt(suffixEndLine).range.end);
-    const workspaceContext = buildAgentWorkspaceContext(editor);
 
     return {
       mode: 'chat',
@@ -348,9 +401,7 @@ export class NoPilotChatViewProvider implements vscode.Disposable {
       chatPrompt: prompt,
       chatMode: this.chatMode,
       chatHistory: history,
-      additionalContext: this.chatMode === 'agent' ? workspaceContext : undefined,
-      workspaceContext,
-      maxTokens: this.chatMode === 'agent' ? 1600 : 1200,
+      maxTokens: 1200,
     };
   }
 
@@ -469,80 +520,17 @@ function getChatModePresentation(mode: ChatPanelMode): ChatModePresentation {
   return {
     chatMode: mode,
     panelTitle: 'Agent Mode',
-    modeLead: 'Plan changes, inspect context, and draft code with workspace-aware prompts.',
+    modeLead: 'Read and search this workspace, review proposed edits, and approve verification runs.',
     modeLabel: 'Agent',
-    modeDescription: 'Planning-first mode for code changes, refactors, and workspace-aware implementation help.',
+    modeDescription: 'Existing-file edits require diff review and approval. Verification commands require separate approval.',
     emptyStateTitle: 'Agent mode is ready.',
-    emptyStateDescription: 'Ask NoPilot to inspect the current file, plan a refactor, or draft the next code change.',
+    emptyStateDescription: 'Inspect files, propose a change, and verify it with your approval. Maximum 12 steps per run.',
     composerLabel: 'Request',
     composerPlaceholder: 'Ask NoPilot Agent to inspect the current file, plan edits, or draft code using the active workspace context.',
     composerHint: 'Enter to run. Shift+Enter for a new line.',
     sendButtonLabel: 'Run Agent',
     pendingButtonLabel: 'Planning...',
   };
-}
-
-function buildAgentWorkspaceContext(editor: vscode.TextEditor | undefined): string | undefined {
-  const sections: string[] = [];
-  const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
-  const visibleEditors = vscode.window.visibleTextEditors
-    .filter((candidate) => candidate.document.uri.scheme === 'file');
-
-  if (workspaceFolders.length > 0) {
-    sections.push(
-      `Workspace folders: ${workspaceFolders.slice(0, 3).map((folder) => folder.name).join(', ')}`
-    );
-  }
-
-  if (visibleEditors.length > 0) {
-    const visibleFiles = uniqueVisibleDocuments(visibleEditors)
-      .slice(0, 4)
-      .map((document) => describeDocument(document));
-
-    if (visibleFiles.length > 0) {
-      sections.push(`Visible files: ${visibleFiles.join(' | ')}`);
-    }
-  }
-
-  const previewDocuments = uniqueVisibleDocuments(visibleEditors)
-    .filter((document) => document.uri.toString() !== editor?.document.uri.toString())
-    .slice(0, 2);
-  const previews = previewDocuments
-    .map((document) => buildDocumentPreview(document))
-    .filter((preview): preview is string => Boolean(preview));
-
-  if (previews.length > 0) {
-    sections.push(`Open file previews:\n${previews.join('\n\n')}`);
-  }
-
-  return sections.length > 0 ? sections.join('\n\n') : undefined;
-}
-
-function uniqueVisibleDocuments(editors: readonly vscode.TextEditor[]): vscode.TextDocument[] {
-  const documents = new Map<string, vscode.TextDocument>();
-
-  for (const editor of editors) {
-    documents.set(editor.document.uri.toString(), editor.document);
-  }
-
-  return Array.from(documents.values());
-}
-
-function describeDocument(document: vscode.TextDocument): string {
-  return `${document.fileName.split(/[/\\]/).pop() || 'untitled'} (${document.languageId})`;
-}
-
-function buildDocumentPreview(document: vscode.TextDocument): string | undefined {
-  const lastLine = Math.min(document.lineCount, 12);
-  const preview = Array.from({ length: lastLine }, (_, index) => document.lineAt(index).text)
-    .join('\n')
-    .trim();
-
-  if (!preview) {
-    return undefined;
-  }
-
-  return `File: ${describeDocument(document)}\n${preview.slice(0, 900)}`;
 }
 
 function indentBlock(text: string, indent = 4): string {

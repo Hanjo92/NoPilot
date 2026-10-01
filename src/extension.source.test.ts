@@ -28,7 +28,7 @@ test('extension configuration listener refreshes provider state for external mod
   assert.match(source, /const PROVIDER_IDS: ProviderId\[\] = \['vscode-lm', 'anthropic', 'openai', 'openai-compatible', 'gemini', 'ollama'\];/);
   assert.match(source, /const providerManager = new ProviderManager\(authService, context\.globalState\);/);
   assert.match(source, /vscode\.window\.registerTreeDataProvider\(\s*'nopilot\.menu',\s*new NoPilotMenuProvider\(\)\s*\)/);
-  assert.match(source, /const chatViewProvider = new NoPilotChatViewProvider\(providerManager\);/);
+  assert.match(source, /const chatViewProvider = new NoPilotChatViewProvider\(providerManager, editReview\);/);
   assert.doesNotMatch(source, /registerWebviewViewProvider/);
   assert.match(source, /vscode\.commands\.registerCommand\('nopilot\.openChatPanel', async \(\) => \{/);
   assert.match(source, /await chatViewProvider\.show\(\);/);

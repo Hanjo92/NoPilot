@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Bounded Agent execution with repository-scoped read/search tools, reviewed multi-file replacements, and separately approved npm verification with result feedback.
+- Stop controls, cancellation/time/iteration limits, and isolated Extension Host integration tests.
+
+### Fixed
+
+- Chat and inline-chat edits now retain the original document/version/range, require diff review and explicit approval, and reject stale documents.
+- Ask context no longer includes other visible files or Agent history.
+
 ## [0.3.8] - 2026-07-09
 
 ### Changed
